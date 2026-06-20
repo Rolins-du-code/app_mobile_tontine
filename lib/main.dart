@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'core/theme.dart';
 import 'features/auth/splash_screen.dart';
 import 'features/auth/register_screen.dart';
+import 'features/auth/login_screen.dart';
+import 'package:mon_amical/firebase_options.dart';
 
 void main() {
   runApp(const MonAmicaleApp());
@@ -29,6 +31,7 @@ class _MonAmicaleAppState extends State<MonAmicaleApp> {
       routes: {
         '/': (context)  => const SplashScreen(),
         // on ajoutera /light, /register , hub etc. au fure et a mesure 
+        '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
       },
     );

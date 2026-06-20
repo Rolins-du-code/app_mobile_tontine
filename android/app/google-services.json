@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "233391519479",
+    "project_id": "mon-amical",
+    "storage_bucket": "mon-amical.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:233391519479:android:a68e0c4886c0534a6985f2",
+        "android_client_info": {
+          "package_name": "com.monamicale.mon_amical"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJLTjzbDFs8vs4LGmsikQZ84cvBetmJ_s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
