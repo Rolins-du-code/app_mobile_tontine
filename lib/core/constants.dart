@@ -1,0 +1,1 @@
+// va prendre les valeur fixe de l'application ( textes, routes....)
