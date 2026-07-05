@@ -1,6 +1,8 @@
+//fichier qui gere l'inscription des utilisateur qui viennes des nouveaux utilisateur sur la plate forme
+
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
-import 'otp_screen.dart';
+import 'pin_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -10,14 +12,10 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // Contrôleurs : permettent de lire ce que l'utilisateur tape
   final _nomController = TextEditingController();
   final _telController = TextEditingController();
-
-  // Clé du formulaire : permet de valider les champs
   final _formKey = GlobalKey<FormState>();
 
-  // Libère la mémoire quand l'écran est fermé
   @override
   void dispose() {
     _nomController.dispose();
@@ -25,20 +23,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // Appelée quand on appuie sur "Continuer"
   void _continuer() {
     if (_formKey.currentState!.validate()) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => OtpScreen(telephone: _telController.text.trim()),
+          builder: (_) => PinScreen(
+            telephone: _telController.text.trim(),
+            nom: _nomController.text.trim(),
+          ),
         ),
       );
-      // Pour l'instant on affiche juste un message
-      // Plus tard : on navigue vers la vérification SMS
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Code SMS envoyé !')));
     }
   }
 
@@ -53,7 +48,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Logo
                 Center(
                   child: Container(
                     width: 64,
@@ -74,10 +68,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                // Titre
                 const Center(
                   child: Text(
                     'Créer votre compte',
@@ -90,15 +81,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     style: TextStyle(color: AppColors.muted),
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
-                // Indicateur d'étapes
-                _StepIndicator(currentStep: 1, totalSteps: 3),
-
+                _StepIndicator(currentStep: 1, totalSteps: 2),
                 const SizedBox(height: 28),
-
-                // Champ Nom
                 const Text(
                   'Nom complet',
                   style: TextStyle(
@@ -112,7 +97,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _nomController,
                   textCapitalization: TextCapitalization.words,
                   decoration: const InputDecoration(
-                    hintText: 'Ex : votre nom',
+                    hintText: 'Ex : Pauline NGONO',
                     prefixIcon: Icon(Icons.person_outline),
                   ),
                   validator: (value) {
@@ -122,13 +107,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     if (value.trim().length < 3) {
                       return 'Nom trop court';
                     }
-                    return null; // null = valide
+                    return null;
                   },
                 ),
-
                 const SizedBox(height: 20),
-
-                //  Champ Téléphone
                 const Text(
                   'Numéro de téléphone',
                   style: TextStyle(
@@ -150,16 +132,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     if (value == null || value.trim().isEmpty) {
                       return 'Veuillez entrer votre numéro';
                     }
-                    if (value.trim().length < 9) {
+                    if (value.trim().replaceAll(' ', '').length < 9) {
                       return 'Numéro invalide';
                     }
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 32),
-
-                // Bouton Continuer
                 ElevatedButton(
                   onPressed: _continuer,
                   child: const Text(
@@ -167,10 +146,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                //  Lien connexion
                 Center(
                   child: GestureDetector(
                     onTap: () {
@@ -202,7 +178,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
-// ── Widget réutilisable : indicateur d'étapes ──────────
 class _StepIndicator extends StatelessWidget {
   final int currentStep;
   final int totalSteps;
@@ -226,13 +201,14 @@ class _StepIndicator extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           children: List.generate(totalSteps, (index) {
-            final isActive = index < currentStep;
             return Expanded(
               child: Container(
                 margin: EdgeInsets.only(right: index < totalSteps - 1 ? 6 : 0),
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isActive ? AppColors.primary : AppColors.border,
+                  color: index < currentStep
+                      ? AppColors.primary
+                      : AppColors.border,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),

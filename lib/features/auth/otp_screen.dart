@@ -1,12 +1,22 @@
+// page de vérification du code OTP envoyé par SMS, c'est la deuxième étape du processus d'authentification ( après le splash screen et l'enregistrement )
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'pin_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String telephone;
+  final String verificationId;
+  final String nom;
 
-  const OtpScreen({super.key, required this.telephone});
+  const OtpScreen({
+    super.key,
+    required this.telephone,
+    required this.verificationId,
+    required this.nom,
+  });
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -14,12 +24,13 @@ class OtpScreen extends StatefulWidget {
 
 class _OtpScreenState extends State<OtpScreen> {
   // Un contrôleur par case OTP
-  final List<TextEditingController> _controllers =
-      List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
 
   // Un FocusNode par case (pour passer auto à la suivante)
-  final List<FocusNode> _focusNodes =
-      List.generate(6, (_) => FocusNode());
+  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   // Compte à rebours pour "Renvoyer le code"
   int _secondsLeft = 60;
@@ -54,26 +65,45 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   // Récupère le code complet (les 6 chiffres collés)
-  String get _codeComplet =>
-      _controllers.map((c) => c.text).join();
+  String get _codeComplet => _controllers.map((c) => c.text).join();
 
-  void _verifier() {
+  bool _isVerifying =
+      false; // nouvelle VARIABLE D'ETATT POUR verifier si c'est correcte ou pas
+  Future<void> _verifier() async {
     if (_codeComplet.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Entrez les 6 chiffres du code')),
+        const SnackBar(content: Text('Entrez les 6 chiffres du code ')),
       );
       return;
     }
+    setState(() => _isVerifying = true);
 
-    // Pour l'instant on accepte n'importe quel code à 6 chiffres
-    // Plus tard Firebase vérifiera le vrai code SMS
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PinScreen(telephone: widget.telephone),
-      ),
-    );
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: widget.verificationId,
+        smsCode: _codeComplet,
+      );
+
+      await FirebaseAuth.instance.signInWithCredential(credential);
+
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              PinScreen(telephone: widget.telephone, nom: widget.nom),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      setState(() => _isVerifying = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.code == 'invalid-verification-code'
+            ? 'Code incorrect, reessayez'
+            : 'Erreur : ${e.message}')),
+      );
+    }
   }
+
 
   void _onChiffreSaisi(String value, int index) {
     if (value.isNotEmpty && index < 5) {
@@ -104,8 +134,7 @@ class _OtpScreenState extends State<OtpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
-              // Icône 
+              // Icône
               Center(
                 child: Container(
                   width: 64,
@@ -128,10 +157,7 @@ class _OtpScreenState extends State<OtpScreen> {
               const Center(
                 child: Text(
                   'Vérifiez votre téléphone',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                 ),
               ),
               const SizedBox(height: 8),
@@ -145,12 +171,12 @@ class _OtpScreenState extends State<OtpScreen> {
 
               const SizedBox(height: 24),
 
-              //  Indicateur d'étapes 
+              //  Indicateur d'étapes
               _StepIndicator(currentStep: 2, totalSteps: 3),
 
               const SizedBox(height: 36),
 
-              // Cases OTP 
+              // Cases OTP
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: List.generate(6, (index) {
@@ -168,9 +194,7 @@ class _OtpScreenState extends State<OtpScreen> {
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
                       ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       decoration: InputDecoration(
                         counterText: '',
                         contentPadding: EdgeInsets.zero,
@@ -231,14 +255,16 @@ class _OtpScreenState extends State<OtpScreen> {
               ),
 
               const Spacer(),
-                 //  Bouton Vérifier
-              ElevatedButton(
-                onPressed: _codeComplet.length == 6 ? _verifier : null,
-                child: const Text(
-                  'Vérifier',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-              ),
+              //  Bouton Vérifier
+           ElevatedButton(
+                      onPressed: (_codeComplet.length == 6 && !_isVerifying) ? _verifier : null,
+                      child: _isVerifying
+                          ? const SizedBox(
+                              height: 20, width: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text('Vérifier', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    ),
 
               const SizedBox(height: 16),
             ],
@@ -249,9 +275,7 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 }
 
-
-
-// Indicateur d'étapes (réutilisé) 
+// Indicateur d'étapes (réutilisé)
 class _StepIndicator extends StatelessWidget {
   final int currentStep;
   final int totalSteps;

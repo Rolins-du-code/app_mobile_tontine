@@ -1,11 +1,17 @@
+// page de création du code PIN, c'est la troisième étape du processus d'authentification ( après le splash screen, l'enregistrement et la vérification OTP )
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme.dart';
 
 class PinScreen extends StatefulWidget {
   final String telephone;
+  final String nom;
 
-  const PinScreen({super.key, required this.telephone});
+  const PinScreen({super.key, required this.telephone, required this.nom});
 
   @override
   State<PinScreen> createState() => _PinScreenState();
@@ -53,7 +59,9 @@ class _PinScreenState extends State<PinScreen> {
         _terminerInscription();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Les codes ne correspondent pas, recommencez')),
+          const SnackBar(
+            content: Text('Les codes ne correspondent pas, recommencez'),
+          ),
         );
         setState(() {
           _pin = '';
@@ -64,34 +72,76 @@ class _PinScreenState extends State<PinScreen> {
     }
   }
 
-  void _terminerInscription() {
-    // Ici, plus tard : on hachera le PIN et on l'enverra à Firebase
-    // Pour l'instant on affiche juste une confirmation
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text('Compte créé !'),
-        content: const Text(
-          'Votre compte a été créé avec succès. '
-          'Vous pourrez rejoindre une tontine dès que votre numéro '
-          'sera validé par le bureau.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // Plus tard : navigation vers le Hub
-              Navigator.popUntil(context, (route) => route.isFirst);
-            },
-            child: const Text('Continuer'),
-          ),
-        ],
+ Future<void> _terminerInscription() async {
+  final pinHache = sha256.convert(utf8.encode(_pin)).toString();
+
+  // Pas de vérification SMS réelle pour l'instant (coût Firebase Blaze).
+  // Connexion anonyme : identifiant stable, gratuit, sans carte requise.
+  // Plus tard : currentUser.linkWithCredential(phoneCredential) pour
+  // attacher le vrai numéro vérifié à ce même compte, sans perdre les données.
+  final userCredential = await FirebaseAuth.instance.signInAnonymously();
+  final uid = userCredential.user!.uid;
+
+  await FirebaseFirestore.instance.collection('membres').doc(uid).set({
+    'nom': widget.nom,
+    'telephone': widget.telephone,
+    'pinHash': pinHache,
+    'role': 'membre',
+    'telephoneVerifie': false,       // passera à true quand le SMS sera activé
+    'statutValidation': 'en_attente', // à valider manuellement par le bureau
+    'dateInscription': FieldValue.serverTimestamp(),
+  });
+
+  if (!mounted) return;
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Compte créé !'),
+      content: const Text(
+        'Votre compte a été créé avec succès. '
+        'Vous pourrez rejoindre une tontine dès que votre numéro '
+        'sera validé par le bureau.',
       ),
-    );
-  }
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.popUntil(context, (route) => route.isFirst);
+          },
+          child: const Text('Continuer'),
+        ),
+      ],
+    ),
+  );
+}
+  // void _terminerInscription() {
+  //   // Ici, plus tard : on hachera le PIN et on l'enverra à Firebase
+  //   // Pour l'instant on affiche juste une confirmation
+  //   showDialog(
+  //     context: context,
+  //     barrierDismissible: false,
+  //     builder: (_) => AlertDialog(
+  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+  //       title: const Text('Compte créé !'),
+  //       content: const Text(
+  //         'Votre compte a été créé avec succès. '
+  //         'Vous pourrez rejoindre une tontine dès que votre numéro '
+  //         'sera validé par le bureau.',
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () {
+  //             // Plus tard : navigation vers le Hub
+  //             Navigator.popUntil(context, (route) => route.isFirst);
+  //           },
+  //           child: const Text('Continuer'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -120,10 +170,9 @@ class _PinScreenState extends State<PinScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-
               const SizedBox(height: 8),
 
-              //  Icône 
+              //  Icône
               Container(
                 width: 64,
                 height: 64,
@@ -139,7 +188,7 @@ class _PinScreenState extends State<PinScreen> {
               ),
 
               const SizedBox(height: 20),
-               //  Titre dynamique 
+              //  Titre dynamique
               Text(
                 _modeConfirmation
                     ? 'Confirmez votre code PIN'
@@ -160,12 +209,12 @@ class _PinScreenState extends State<PinScreen> {
 
               const SizedBox(height: 20),
 
-              //  Indicateur d'étapes 
+              //  Indicateur d'étapes
               _StepIndicator(currentStep: 3, totalSteps: 3),
 
               const SizedBox(height: 40),
 
-              //  Points du PIN 
+              //  Points du PIN
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(4, (index) {
@@ -185,11 +234,8 @@ class _PinScreenState extends State<PinScreen> {
 
               const Spacer(),
 
-              //  Clavier numérique 
-              _Keypad(
-                onChiffre: _onChiffreAppuye,
-                onEffacer: _onEffacer,
-              ),
+              //  Clavier numérique
+              _Keypad(onChiffre: _onChiffreAppuye, onEffacer: _onEffacer),
 
               const SizedBox(height: 16),
 
@@ -208,7 +254,9 @@ class _PinScreenState extends State<PinScreen> {
   }
 }
 
-// Clavier numérique réutilisable 
+
+
+// Clavier numérique réutilisable
 class _Keypad extends StatelessWidget {
   final void Function(String) onChiffre;
   final VoidCallback onEffacer;
@@ -219,10 +267,18 @@ class _Keypad extends StatelessWidget {
   Widget build(BuildContext context) {
     // Liste des touches : null = case vide, 'back' = effacer
     final touches = [
-      '1', '2', '3',
-      '4', '5', '6',
-      '7', '8', '9',
-      '', '0', 'back',
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+      '',
+      '0',
+      'back',
     ];
 
     return GridView.count(
@@ -289,7 +345,7 @@ class _KeypadButton extends StatelessWidget {
   }
 }
 
-// Indicateur d'étapes (réutilisé une 3e fois) 
+// Indicateur d'étapes (réutilisé une 3e fois)
 class _StepIndicator extends StatelessWidget {
   final int currentStep;
   final int totalSteps;

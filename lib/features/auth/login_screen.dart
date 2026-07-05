@@ -4,6 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme.dart';
 import 'register_screen.dart';
+// importation lier la connexion dans firebase
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,22 +41,80 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _pin = _pin.substring(0, _pin.length - 1));
   }
 
-  void _seConnecter() {
+  // void _seConnecter() {
+  //   if (_telController.text.trim().isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Entrez votre numéro de téléphone')),
+  //     );
+  //     setState(() => _pin = '');
+  //     return;
+  //   }
+
+  //   // Pour l'instant : pas de vérification réelle, Firebase viendra plus tard
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     const SnackBar(content: Text('Connexion réussie (simulation)')),
+  //   );
+
+  //   // Plus tard : Navigator.pushReplacementNamed(context, '/hub');
+  //   setState(() => _pin = '');
+  // }
+
+  Future<void> _seConnecter() async {
     if (_telController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Entrez votre numéro de téléphone')),
+        const SnackBar(content: Text('Entrez votre numero de téléphone ')),
       );
       setState(() => _pin = '');
       return;
     }
+    // Hache de PIN entre pour le compare a celui stocké
+    final pinHache = sha256.convert(utf8.encode(_pin)).toString();
+    final telephone = _telController.text.trim().replaceAll(' ', ' ');
 
-    // Pour l'instant : pas de vérification réelle, Firebase viendra plus tard
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Connexion réussie (simulation)')),
-    );
+    try {
+      //chercher les membre par numero de telephone dans firestorm
+      final resultat = await FirebaseFirestore.instance
+          .collection('membres')
+          .where('telephone', isEqualTo: telephone)
+          .limit(1)
+          .get();
+      if (resultat.docs.isEmpty) {
+        // Aucun compte trouver avec  ce numéro
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucun compte trouvé pour ce numéro')),
+        );
+        setState(() => _pin = '');
+        return;
+      }
 
-    // Plus tard : Navigator.pushReplacementNamed(context, '/hub');
-    setState(() => _pin = '');
+      final membre = resultat.docs.first;
+
+      if (membre['pinHash'] != pinHache) {
+        // PIN Incorrect
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Code PIN Incorrect')));
+        setState(() => _pin = '');
+      }
+
+      //PIN correct - reconnecter l'utilisateur anonymement avec son UID
+      await FirebaseAuth.instance.signInAnonymously();
+
+      if (!mounted) return;
+
+      //PIN COrrect: naviger vers le hub (à créer)
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Bienvenue ${membre['nom']} !')));
+      // plus tard : Navigator.pushReplacementNamed(context, '/hub');
+      setState(() => _pin = '');
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur de connexion : $e')));
+      setState(() => _pin = '');
+    }
   }
 
   @override
@@ -64,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 40),
 
-              // Logo 
+              // Logo
               Container(
                 width: 64,
                 height: 64,
@@ -96,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 32),
 
-              //  Champ téléphone 
+              //  Champ téléphone
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -133,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-                   //  Points du PIN 
+              //  Points du PIN
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(4, (index) {
@@ -153,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 24),
 
-              // Clavier numérique 
+              // Clavier numérique
               GridView.count(
                 crossAxisCount: 3,
                 shrinkWrap: true,
@@ -162,9 +225,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisSpacing: 12,
                 childAspectRatio: 1.6,
                 children: [
-                  ...['1','2','3','4','5','6','7','8','9'].map(
-                    (c) => _toucheChiffre(c),
-                  ),
+                  ...[
+                    '1',
+                    '2',
+                    '3',
+                    '4',
+                    '5',
+                    '6',
+                    '7',
+                    '8',
+                    '9',
+                  ].map((c) => _toucheChiffre(c)),
                   const SizedBox(),
                   _toucheChiffre('0'),
                   _toucheEffacer(),
@@ -177,7 +248,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 onTap: () {
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                    MaterialPageRoute(builder: (_) => RegisterScreen()),
                   );
                 },
                 child: const Text(
@@ -246,9 +317,7 @@ class _LoginScreenState extends State<LoginScreen> {
             border: Border.all(color: AppColors.border),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Center(
-            child: Icon(Icons.backspace_outlined, size: 20),
-          ),
+          child: const Center(child: Icon(Icons.backspace_outlined, size: 20)),
         ),
       ),
     );
