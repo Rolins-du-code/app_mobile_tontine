@@ -1,5 +1,7 @@
 // page de connexion pour ceux qui revienne après une première connexion ( après le splash screen )
 
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme.dart';
@@ -80,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
           .get();
       if (resultat.docs.isEmpty) {
         // Aucun compte trouver avec  ce numéro
-        // ignore: use_build_context_synchronously
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Aucun compte trouvé pour ce numéro')),
         );
@@ -104,11 +106,16 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       //PIN COrrect: naviger vers le hub (à créer)
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Bienvenue ${membre['nom']} !')));
-      // plus tard : Navigator.pushReplacementNamed(context, '/hub');
-      setState(() => _pin = '');
+      // rediriger selon le role
+      final role = membre['role'];
+      if (role == 'president' ||
+          role == 'tresorier' ||
+          role == 'secretaire_general' ||
+          role == 'commisaire_compte') {
+        Navigator.pushReplacementNamed(context, '/bureau');
+      } else {
+        Navigator.pushReplacementNamed(context, '/hub');
+      }
     } catch (e) {
       ScaffoldMessenger.of(
         context,
