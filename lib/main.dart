@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:mon_amical/features/hub/create_tontine_screen.dart';
 import 'firebase_options.dart';
 import 'core/theme.dart';
 import 'features/auth/splash_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/auth/login_screen.dart';
-import 'features/hub/create_tontine_screen.dart';
+import 'features/hub/hub_screen.dart';
+
 
 
 void main() async {
@@ -44,10 +46,9 @@ class _MonAmicaleAppState extends State<MonAmicaleApp> {
         '/login': (context) => const LoginScreen(),
         '/register': (context) =>  RegisterScreen(),
         // route provisoir 
-        '/hub': (context) => const Scaffold(
-          body: Center(child: Text('Hub membre - Bientot'),),
-        ),
-        '/bureau': (context) => const CreateTontineScreen(),
+        '/hub': (context) => const HubScreen(),
+        
+        '/bureau': (context) => const HubScreen(),
       },
     );
   }
