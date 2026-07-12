@@ -1,10 +1,11 @@
 //liste uniquement les tontines auxquelles l'uttilisateur a souscrit
 
- import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme.dart';
 import 'create_tontine_screen.dart';
+import '../dashboard/dashboard_tontine_screen.dart';
 
 class HubScreen extends StatelessWidget {
   const HubScreen({super.key});
@@ -56,41 +57,56 @@ class HubScreen extends StatelessWidget {
                       );
                     },
                   ),
-                  // Avatar
-                  FutureBuilder<DocumentSnapshot>(
-                    future: FirebaseFirestore.instance
-                        .collection('membres')
-                        .doc(uid)
-                        .get(),
-                    builder: (context, snap) {
-                      final nom = snap.hasData
-                          ? snap.data!['nom'] as String
-                          : '?';
-                      final initiales = nom
-                          .split(' ')
-                          .take(2)
-                          .map((e) => e.isNotEmpty ? e[0] : '')
-                          .join()
-                          .toUpperCase();
-                      return Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Center(
-                          child: Text(
-                            initiales,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
+
+                  // Avatar + Déconnexion
+                  Row(
+                    children: [
+                      FutureBuilder<DocumentSnapshot>(
+                        future: FirebaseFirestore.instance
+                            .collection('membres')
+                            .doc(uid)
+                            .get(),
+                        builder: (context, snap) {
+                          final nom = snap.hasData
+                              ? snap.data!['nom'] as String
+                              : '?';
+                          final initiales = nom
+                              .split(' ')
+                              .take(2)
+                              .map((e) => e.isNotEmpty ? e[0] : '')
+                              .join()
+                              .toUpperCase();
+                          return Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                          ),
-                        ),
-                      );
-                    },
+                            child: Center(
+                              child: Text(
+                                initiales,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      IconButton(
+                        icon: const Icon(Icons.logout),
+                        onPressed: () async {
+                          await FirebaseAuth.instance.signOut();
+                          if (context.mounted) {
+                            Navigator.pushReplacementNamed(context, '/');
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -98,31 +114,46 @@ class HubScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // ── Liste des tontines ────────────────
+            //  Liste des tontines 
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                // Écoute en temps réel les tontines
-                    // où l'utilisateur a une adhésion
+              child: StreamBuilder<DocumentSnapshot>(
                 stream: FirebaseFirestore.instance
-                    .collectionGroup('adhesions')
-                    .where('membreUid', isEqualTo: uid)
+                    .collection('membres')
+                    .doc(uid)
                     .snapshots(),
-                builder: (context, snapAdhesions) {
-                  if (snapAdhesions.connectionState ==
+                builder: (context, snapMembre) {
+                  if (snapMembre.connectionState ==
                       ConnectionState.waiting) {
                     return const Center(
                       child: CircularProgressIndicator(),
                     );
                   }
 
-                  final adhesions = snapAdhesions.data?.docs ?? [];
-
-                  if (adhesions.isEmpty) {
+                  if (!snapMembre.hasData ||
+                      !snapMembre.data!.exists) {
                     return _EcranVide(
                       onCreer: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const CreateTontineScreen(),
+                          builder: (_) =>
+                              const CreateTontineScreen(),
+                        ),
+                      ),
+                    );
+                  }
+
+                  final data = snapMembre.data!.data()
+                      as Map<String, dynamic>;
+                  final tontineIds =
+                      List<String>.from(data['tontines'] ?? []);
+
+                  if (tontineIds.isEmpty) {
+                    return _EcranVide(
+                      onCreer: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const CreateTontineScreen(),
                         ),
                       ),
                     );
@@ -131,35 +162,56 @@ class HubScreen extends StatelessWidget {
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 8),
-                    itemCount: adhesions.length,
+                    itemCount: tontineIds.length,
                     itemBuilder: (context, index) {
-                      // Récupère l'ID de la tontine depuis le chemin
-                      final tontineId = adhesions[index]
-                          .reference
-                          .parent
-                          .parent!
-                          .id;
-                      final roleAdhesion =
-                          adhesions[index]['role'] as String;
-
                       return FutureBuilder<DocumentSnapshot>(
                         future: FirebaseFirestore.instance
                             .collection('tontines')
-                            .doc(tontineId)
+                            .doc(tontineIds[index])
                             .get(),
                         builder: (context, snapTontine) {
                           if (!snapTontine.hasData) {
                             return const SizedBox(height: 80);
                           }
+                          if (!snapTontine.data!.exists) {
+                            return const SizedBox.shrink();
+                          }
+
                           final t = snapTontine.data!;
-                          return _CarteTontine(
-                            tontineId: tontineId,
-                            nom: t['nom'] ?? '',
-                            type: t['type'] ?? 'formelle',
-                            palier: t['palier'] ?? 0,
-                            moisCourant: t['moisCourant'] ?? 1,
-                            dureeMois: t['dureeMois'] ?? 10,
-                            role: roleAdhesion,
+                          final tData = t.data()
+                              as Map<String, dynamic>;
+
+                          return FutureBuilder<DocumentSnapshot>(
+                            future: FirebaseFirestore.instance
+                                .collection('tontines')
+                                .doc(tontineIds[index])
+                                .collection('adhesions')
+                                .doc(uid)
+                                .get(),
+                            builder: (context, snapAdhesion) {
+                              final role = snapAdhesion.hasData &&
+                                      snapAdhesion.data!.exists
+                                  ? snapAdhesion.data!['role']
+                                      as String
+                                  : 'membre';
+                              final ordre = snapAdhesion.hasData &&
+                                      snapAdhesion.data!.exists
+                                  ? snapAdhesion.data!['ordre']
+                                      as int? ?? 0
+                                  : 0;
+
+                              return _CarteTontine(
+                                tontineId: t.id,
+                                nom: tData['nom'] ?? '',
+                                type: tData['type'] ?? 'formelle',
+                                palier: tData['palier'] ?? 0,
+                                moisCourant:
+                                    tData['moisCourant'] ?? 1,
+                                dureeMois: tData['dureeMois'] ?? 10,
+                                role: role,
+                                ordre: ordre,
+                              );
+                            },
                           );
                         },
                       );
@@ -172,7 +224,7 @@ class HubScreen extends StatelessWidget {
         ),
       ),
 
-      // Bouton flottant (bureau uniquement) 
+      //  Bouton flottant
       floatingActionButton: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance
             .collection('membres')
@@ -182,8 +234,10 @@ class HubScreen extends StatelessWidget {
           if (!snap.hasData) return const SizedBox.shrink();
           final role = snap.data!['role'] as String;
           final estBureau = [
-            'president', 'tresorier',
-            'secretaire_general', 'commissaire_comptes'
+            'president',
+            'tresorier',
+            'secretaire_general',
+            'commissaire_comptes'
           ].contains(role);
 
           if (!estBureau) return const SizedBox.shrink();
@@ -210,7 +264,8 @@ class HubScreen extends StatelessWidget {
     );
   }
 }
-    //  Carte tontine 
+
+//  Carte tontine cliquable 
 class _CarteTontine extends StatelessWidget {
   final String tontineId;
   final String nom;
@@ -219,6 +274,7 @@ class _CarteTontine extends StatelessWidget {
   final int moisCourant;
   final int dureeMois;
   final String role;
+  final int ordre;
 
   const _CarteTontine({
     required this.tontineId,
@@ -228,123 +284,149 @@ class _CarteTontine extends StatelessWidget {
     required this.moisCourant,
     required this.dureeMois,
     required this.role,
+    required this.ordre,
   });
 
   @override
   Widget build(BuildContext context) {
-    final progression = dureeMois > 0
-        ? moisCourant / dureeMois
-        : 0.0;
+    final progression =
+        dureeMois > 0 ? moisCourant / dureeMois : 0.0;
     final estFormelle = type == 'formelle';
-    final couleur = estFormelle
-        ? AppColors.primary
-        : AppColors.success;
+    final couleur =
+        estFormelle ? AppColors.primary : AppColors.success;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DashboardTontineScreen(
+            tontineId: tontineId,
+            role: role,
           ),
-        ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Type + rôle
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: couleur.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  estFormelle ? 'Formelle' : 'Informelle',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: couleur,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Type + rôle
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: couleur.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    estFormelle ? 'Formelle' : 'Informelle',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: couleur,
+                    ),
                   ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    role,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.accent,
+                    ),
+                  ),
                 ),
-                child: Text(
-                  role,
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            // Nom
+            Text(
+              nom,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+
+            const SizedBox(height: 4),
+
+            // Infos
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  estFormelle
+                      ? 'Mois $moisCourant / $dureeMois · $palier FCFA'
+                      : 'Tour $moisCourant / $dureeMois · $palier FCFA',
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.accent,
+                    fontSize: 12,
+                    color: AppColors.muted,
                   ),
                 ),
+                // Rang du membre
+                if (ordre > 0)
+                  Text(
+                    'Rang #$ordre',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: couleur,
+                    ),
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            // Barre de progression
+            ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: LinearProgressIndicator(
+                value: progression,
+                backgroundColor: AppColors.border,
+                valueColor: AlwaysStoppedAnimation<Color>(couleur),
+                minHeight: 5,
               ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // Nom
-          Text(
-            nom,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
             ),
-          ),
-
-          const SizedBox(height: 4),
-
-          // Palier + progression
-          Text(
-            estFormelle
-                ? 'Mois $moisCourant / $dureeMois · $palier FCFA'
-                : 'Tour $moisCourant / $dureeMois · $palier FCFA',
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.muted,
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Barre de progression
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progression,
-              backgroundColor: AppColors.border,
-              valueColor: AlwaysStoppedAnimation<Color>(couleur),
-              minHeight: 5,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-// ── Écran vide (aucune tontine) ───────────────────────
+//  Écran vide 
 class _EcranVide extends StatelessWidget {
   final VoidCallback onCreer;
 
   const _EcranVide({required this.onCreer});
-        @override
+
+  @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(

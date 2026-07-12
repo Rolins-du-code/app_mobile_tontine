@@ -49,61 +49,224 @@ class _FormalTontineScreen extends State<FormalTontineScreen> {
     super.dispose();
   }
 
+  // fonction adapte pour la gestion des erreurs
   Future<void> _creerTontine() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_montantController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez entrer un montant')),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      final uid = FirebaseAuth.instance.currentUser!.uid;
-      final membreDoc = await FirebaseFirestore.instance
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vous n\'êtes pas connecté')),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // final uid = user.uid;
+
+      // Récupère le document membre
+
+      // final user = FirebaseAuth.instance.currentUser!;
+      final uid = user.uid;
+
+      //cherche d'abord par uid (nouveau systeme)
+
+      DocumentSnapshot membreDoc = await FirebaseFirestore.instance
           .collection('membres')
           .doc(uid)
           .get();
 
-      await FirebaseFirestore.instance.collection('tontines').add({
-        'type': 'formelle',
-        'nom': _nomController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'palier': int.tryParse(_montantController.text) ?? 0,
-        'dureeMois': _dureeMois,
-        'moisCourant': 1,
-        'statut': 'actif',
-        'createurUid': uid,
-        'createurNom': membreDoc['nom'],
-        'dateCreation': FieldValue.serverTimestamp(),
-        'tauxInteret': 3.0,
-        'ordreRedistribution': 'fixe',
-        // Solidarité
-        'solidariteActive': _solidariteActive,
-        'montantSolidarite': _solidariteActive
-            ? int.tryParse(_solidariteController.text) ?? 15000
-            : 0,
-        // Collation
-        'collationActive': _collationActive,
-        'montantCollation': _collationActive
-            ? int.tryParse(_collationController.text) ?? 2000
-            : 0,
-        // Pénalité
-        'penaliteActive': _penaliteActive,
-        'montantPenalite': _penaliteActive
-            ? int.tryParse(_penaliteController.text) ?? 0
-            : 0,
+      // si pas trouver chercher par email fictif(migration)
+
+      if (!membreDoc.exists) {
+        final email = user.email ?? ' ';
+        final telephone = email.replaceAll('@monamicale.app', ' ');
+
+        final resultat = await FirebaseFirestore.instance
+            .collection('membres')
+            .where('telephone', isEqualTo: telephone)
+            .limit(1)
+            .get();
+
+        if (resultat.docs.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profil introuvable, contactez le bureau'),
+            ),
+          );
+          setState(() => _isLoading = false);
+          return;
+        }
+        // Migration: copie le document sous le nouvel UID
+
+        final ancienDoc = resultat.docs.first;
+        final data = ancienDoc.data() as Map<String, dynamic>;
+
+        await FirebaseFirestore.instance
+            .collection('membres')
+            .doc(uid)
+            .set(data);
+        membreDoc = await FirebaseFirestore.instance
+            .collection('membres')
+            .doc(uid)
+            .get();
+      }
+
+      final nomMembre = membreDoc['nom'] as String;
+      final roleMembre = membreDoc['role'] as String;
+
+      // final membreDoc = await FirebaseFirestore.instance
+      //     .collection('membres')
+      //     .doc(uid)
+      //     .get();
+
+      // if (!membreDoc.exists) {
+      //   ScaffoldMessenger.of(context).showSnackBar(
+      //     SnackBar(content: Text('Profil introuvable (UID: $uid)')),
+      //   );
+      //   setState(() => _isLoading = false);
+      //   return;
+      // }
+
+      // final nomMembre = membreDoc['nom'] as String;
+      // final roleMembre = membreDoc['role'] as String;
+      final montant = int.tryParse(_montantController.text.trim()) ?? 0;
+
+      // Crée la tontine
+      final tontineRef = await FirebaseFirestore.instance
+          .collection('tontines')
+          .add({
+            'type': 'formelle',
+            'nom': _nomController.text.trim(),
+            'description': _descriptionController.text.trim(),
+            'palier': montant,
+            'dureeMois': _dureeMois,
+            'moisCourant': 1,
+            'statut': 'actif',
+            'createurUid': uid,
+            'createurNom': nomMembre,
+            'dateCreation': FieldValue.serverTimestamp(),
+            'tauxInteret': 3.0,
+            'ordreRedistribution': 'fixe',
+            'solidariteActive': _solidariteActive,
+            'montantSolidarite': _solidariteActive
+                ? int.tryParse(_solidariteController.text) ?? 15000
+                : 0,
+            'collationActive': _collationActive,
+            'montantCollation': _collationActive
+                ? int.tryParse(_collationController.text) ?? 2000
+                : 0,
+            'penaliteActive': _penaliteActive,
+            'montantPenalite': _penaliteActive
+                ? int.tryParse(_penaliteController.text) ?? 0
+                : 0,
+          });
+
+      // Crée l'adhésion du créateur
+      await FirebaseFirestore.instance
+          .collection('tontines')
+          .doc(tontineRef.id)
+          .collection('adhesions')
+          .doc(uid)
+          .set({
+            'membreUid': uid,
+            'membreNom': nomMembre,
+            'role': roleMembre,
+            'dateAdhesion': FieldValue.serverTimestamp(),
+            'statut': 'actif',
+            'ordre': 1,
+          });
+      await FirebaseFirestore.instance.collection('membres').doc(uid).update({
+        'tontines': FieldValue.arrayUnion([tontineRef.id]),
       });
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tontine créée avec succès !')),
+        const SnackBar(
+          content: Text('Tontine créée avec succès !'),
+          backgroundColor: Color.fromARGB(255, 76, 160, 79),
+        ),
       );
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Erreur : $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur détaillée : $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
     } finally {
       setState(() => _isLoading = false);
     }
   }
+
+  // Ajoute l'id de la tontine dans le document membre
+
+  // Future<void> _creerTontine() async {
+  //   if (!_formKey.currentState!.validate()) return;
+
+  //   setState(() => _isLoading = true);
+
+  //   try {
+  //     final uid = FirebaseAuth.instance.currentUser!.uid;
+  //     final membreDoc = await FirebaseFirestore.instance
+  //         .collection('membres')
+  //         .doc(uid)
+  //         .get();
+
+  //     await FirebaseFirestore.instance.collection('tontines').add({
+  //       'type': 'formelle',
+  //       'nom': _nomController.text.trim(),
+  //       'description': _descriptionController.text.trim(),
+  //       'palier': int.tryParse(_montantController.text) ?? 0,
+  //       'dureeMois': _dureeMois,
+  //       'moisCourant': 1,
+  //       'statut': 'actif',
+  //       'createurUid': uid,
+  //       'createurNom': membreDoc['nom'],
+  //       'dateCreation': FieldValue.serverTimestamp(),
+  //       'tauxInteret': 3.0,
+  //       'ordreRedistribution': 'fixe',
+  //       // Solidarité
+  //       'solidariteActive': _solidariteActive,
+  //       'montantSolidarite': _solidariteActive
+  //           ? int.tryParse(_solidariteController.text) ?? 15000
+  //           : 0,
+  //       // Collation
+  //       'collationActive': _collationActive,
+  //       'montantCollation': _collationActive
+  //           ? int.tryParse(_collationController.text) ?? 2000
+  //           : 0,
+  //       // Pénalité
+  //       'penaliteActive': _penaliteActive,
+  //       'montantPenalite': _penaliteActive
+  //           ? int.tryParse(_penaliteController.text) ?? 0
+  //           : 0,
+  //     });
+
+  //     if (!mounted) return;
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Tontine créée avec succès !')),
+  //     );
+  //     Navigator.pop(context);
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(
+  //       context,
+  //     ).showSnackBar(SnackBar(content: Text('Erreur : $e')));
+  //   } finally {
+  //     setState(() => _isLoading = false);
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {

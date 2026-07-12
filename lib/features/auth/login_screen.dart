@@ -72,54 +72,52 @@ class _LoginScreenState extends State<LoginScreen> {
     // Hache de PIN entre pour le compare a celui stocké
     final pinHache = sha256.convert(utf8.encode(_pin)).toString();
     final telephone = _telController.text.trim().replaceAll(' ', ' ');
+    final emailFictif = '$telephone@monamical.app';
 
     try {
-      //chercher les membre par numero de telephone dans firestorm
-      final resultat = await FirebaseFirestore.instance
-          .collection('membres')
-          .where('telephone', isEqualTo: telephone)
-          .limit(1)
-          .get();
-      if (resultat.docs.isEmpty) {
-        // Aucun compte trouver avec  ce numéro
+      //connexion avec email fictif + PIN haché
+      final userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: emailFictif, password: pinHache);
+      final uid = userCredential.user!.uid;
 
+      // récupère le profil depuis Firestore
+      final membreDoc = await FirebaseFirestore.instance
+          .collection('membres')
+          .doc(uid)
+          .get();
+
+      if (!membreDoc.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aucun compte trouvé pour ce numéro')),
+          const SnackBar(
+            content: Text('profil introuvable, contactez le bureau'),
+          ),
         );
         setState(() => _pin = '');
         return;
       }
 
-      final membre = resultat.docs.first;
-
-      if (membre['pinHash'] != pinHache) {
-        // PIN Incorrect
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Code PIN Incorrect')));
-        setState(() => _pin = '');
-      }
-
-      //PIN correct - reconnecter l'utilisateur anonymement avec son UID
-      await FirebaseAuth.instance.signInAnonymously();
-
       if (!mounted) return;
 
-      //PIN COrrect: naviger vers le hub (à créer)
-      // rediriger selon le role
-      final role = membre['role'];
-      if (role == 'president' ||
-          role == 'tresorier' ||
-          role == 'secretaire_general' ||
-          role == 'commisaire_compte') {
+      //Redirige selon le role
+      final role = membreDoc['role'] as String;
+      if ([
+        'president',
+        'tresorier',
+        'secretaire_general',
+        'commissaire_compte',
+      ].contains(role)) {
         Navigator.pushReplacementNamed(context, '/bureau');
       } else {
         Navigator.pushReplacementNamed(context, '/hub');
       }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Erreur de connexion : $e')));
+    } on FirebaseAuthException catch (e) {
+      String message = 'Erreur de connexion';
+      if (e.code == 'user-not-found') {
+        message = 'Aucun compte trouvé pour ce numéro';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
       setState(() => _pin = '');
     }
   }

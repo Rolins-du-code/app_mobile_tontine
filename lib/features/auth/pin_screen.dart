@@ -72,50 +72,68 @@ class _PinScreenState extends State<PinScreen> {
     }
   }
 
- Future<void> _terminerInscription() async {
-  final pinHache = sha256.convert(utf8.encode(_pin)).toString();
+  Future<void> _terminerInscription() async {
+    final pinHache = sha256.convert(utf8.encode(_pin)).toString();
 
-  // Pas de vérification SMS réelle pour l'instant (coût Firebase Blaze).
-  // Connexion anonyme : identifiant stable, gratuit, sans carte requise.
-  // Plus tard : currentUser.linkWithCredential(phoneCredential) pour
-  // attacher le vrai numéro vérifié à ce même compte, sans perdre les données.
-  final userCredential = await FirebaseAuth.instance.signInAnonymously();
-  final uid = userCredential.user!.uid;
+    try {
+      // Crée un vrai compte Firebase avec email fictif + pin hache
+      final telephone = widget.telephone.replaceAll(' ', ' ');
+      final emailFictif = '$telephone@monamical.app';
 
-  await FirebaseFirestore.instance.collection('membres').doc(uid).set({
-    'nom': widget.nom,
-    'telephone': widget.telephone,
-    'pinHash': pinHache,
-    'role': 'membre',
-    'telephoneVerifie': false,       // passera à true quand le SMS sera activé
-    'statutValidation': 'en_attente', // à valider manuellement par le bureau
-    'dateInscription': FieldValue.serverTimestamp(),
-  });
+      final UserCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: emailFictif,
+            password: pinHache,
+          );
 
-  if (!mounted) return;
+      final uid = UserCredential.user!.uid;
 
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('Compte créé !'),
-      content: const Text(
-        'Votre compte a été créé avec succès. '
-        'Vous pourrez rejoindre une tontine dès que votre numéro '
-        'sera validé par le bureau.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.popUntil(context, (route) => route.isFirst);
-          },
-          child: const Text('Continuer'),
+      //Sauvegarde le profil dans FireStore
+      await FirebaseFirestore.instance.collection('membres').doc(uid).set({
+        'nom': widget.nom,
+        'telephone': telephone,
+        'role': 'membre',
+        'telephoneVérifié': false,
+        'statutValidation': 'en_attente',
+        'dateInscription': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('Compte créé !'),
+          content: const Text(
+            'Votre compte a été créé avec succès. '
+            'Vous pourrez rejoindre une tontine dès '
+            'que votre numéro sera validé par le bureau. ',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.popUntil(context, (route) => route.isFirst);
+              },
+              child: const Text('Continuer'),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
-}
+      );
+    } on FirebaseAuthException catch (e) {
+      String message = 'Erreur lors de la création du compte';
+      if (e.code == 'email-already-in-use') {
+        message = 'Ce numéro est déjà associé à un compte ';
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
   // void _terminerInscription() {
   //   // Ici, plus tard : on hachera le PIN et on l'enverra à Firebase
   //   // Pour l'instant on affiche juste une confirmation
@@ -253,8 +271,6 @@ class _PinScreenState extends State<PinScreen> {
     );
   }
 }
-
-
 
 // Clavier numérique réutilisable
 class _Keypad extends StatelessWidget {

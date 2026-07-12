@@ -1,3 +1,5 @@
+ // interface de lesection et de creation de la tontine adapte a chaque utilisateur
+
  import 'package:flutter/material.dart';
 import '../../core/theme.dart';
 import 'formal_tontine_screen.dart';
@@ -114,6 +116,8 @@ class _CartType extends StatelessWidget {
     required this.exemples,
     required this.onTap,
   });
+
+
 
   @override
   Widget build(BuildContext context) {

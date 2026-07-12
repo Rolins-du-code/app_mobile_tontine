@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:mon_amical/features/hub/create_tontine_screen.dart';
 import 'firebase_options.dart';
 import 'core/theme.dart';
 import 'features/auth/splash_screen.dart';
@@ -45,7 +44,7 @@ class _MonAmicaleAppState extends State<MonAmicaleApp> {
         // on ajoutera /light, /register , hub etc. au fure et a mesure 
         '/login': (context) => const LoginScreen(),
         '/register': (context) =>  RegisterScreen(),
-        // route provisoir 
+       
         '/hub': (context) => const HubScreen(),
         
         '/bureau': (context) => const HubScreen(),
