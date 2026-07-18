@@ -4,6 +4,8 @@
  import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme.dart';
+// onglet reserver au membres pour le dashboard du tresorier de la tontine
+import '../ajouter_membre_screen.dart';
 
 class MembresTab extends StatelessWidget {
   final String tontineId;
@@ -54,9 +56,17 @@ class MembresTab extends StatelessWidget {
                   ),
                   if (estBureau)
                     ElevatedButton.icon(
-                      onPressed: () {
-                        // À implémenter : ajouter un membre
-                      },
+                      
+                        //  ajouter un membre
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AjouterMembreScreen(
+                            tontineId: tontineId,
+                          ),
+                      ),
+                      ),
+                      
                       icon: const Icon(Icons.person_add,
                           size: 16),
                       label: const Text('Ajouter'),

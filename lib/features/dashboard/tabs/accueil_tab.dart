@@ -54,7 +54,7 @@ class AccueilTab extends StatelessWidget {
               return _CarteGrande(
                 valeur: '$total FCFA',
                 sous: '$nb paiements reçus ce mois',
-                couleur: AppColors.success,
+                couleur: const Color.fromARGB(255, 34, 157, 79),
                 icone: Icons.trending_up,
               );
             },
@@ -99,7 +99,7 @@ class AccueilTab extends StatelessWidget {
                         child: _CarteStat(
                           valeur: '$retard',
                           label: 'En retard',
-                          couleur: AppColors.danger,
+                          couleur: const Color.fromARGB(255, 181, 46, 76),
                           fond: AppColors.dangerBg,
                         ),
                       ),

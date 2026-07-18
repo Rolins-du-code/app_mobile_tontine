@@ -2,6 +2,7 @@
 
  import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mon_amical/features/dashboard/parametres_tontine_screen.dart';
 import '../../core/theme.dart';
 import 'tabs/accueil_tab.dart';
 import 'tabs/cotisations_tab.dart';
@@ -155,7 +156,22 @@ class _DashboardTontineScreenState
                   ),
                 ),
               ),
+                if (_estBureau)
+              IconButton(
+                icon: const Icon(Icons.settings_outlined,
+                    color: Colors.white, size: 20),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ParametresTontineScreen(
+                      tontineId: widget.tontineId,
+                      tontineData: t,
+                    ),
+                  ),
+                ),
+              ),
             ],
+          
           ),
 
           // Corps 
