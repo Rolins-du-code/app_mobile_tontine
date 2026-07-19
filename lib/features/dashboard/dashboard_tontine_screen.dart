@@ -8,6 +8,7 @@ import 'tabs/accueil_tab.dart';
 import 'tabs/cotisations_tab.dart';
 import 'tabs/emprunts_tab.dart';
 import 'tabs/membres_tab.dart';
+import 'tabs/solidarite_tab.dart';
 
 class DashboardTontineScreen extends StatefulWidget {
   final String tontineId;
@@ -78,6 +79,11 @@ class _DashboardTontineScreenState
           MembresTab(
             tontineId: widget.tontineId,
             role: widget.role,
+            estBureau: _estBureau,
+          ),
+          SolidariteTab(
+            tontineId: widget.tontineId,
+            tontineData: t,
             estBureau: _estBureau,
           ),
         ];
@@ -213,6 +219,11 @@ class _DashboardTontineScreenState
                 activeIcon: Icon(Icons.people),
                 label: 'Membres',
               ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.favorite_outline),
+                activeIcon: Icon(Icons.favorite),
+                label: 'Solidarité',
+              )
             ],
           ),
         );
