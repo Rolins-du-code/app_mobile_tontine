@@ -75,10 +75,12 @@ class _DashboardTontineScreenState
             tontineId: widget.tontineId,
             role: widget.role,
             estBureau: _estBureau,
+            tontineData: t,
           ),
           MembresTab(
             tontineId: widget.tontineId,
             role: widget.role,
+            tontineData: t,
             estBureau: _estBureau,
           ),
           SolidariteTab(
@@ -89,7 +91,7 @@ class _DashboardTontineScreenState
         ];
 
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: const Color.fromARGB(255, 233, 239, 248),
 
           // AppBar 
           appBar: AppBar(

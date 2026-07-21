@@ -16,7 +16,7 @@ class MembresTab extends StatelessWidget {
     super.key,
     required this.tontineId,
     required this.role,
-    required this.estBureau,
+    required this.estBureau, required Map<String, dynamic> tontineData,
   });
 
   @override

@@ -10,15 +10,15 @@ class AppColors {
   // Statuts
   static const Color success = Color(0xFF16A34A); // vert
   static const Color danger = Color(0xFFE11D48); // rouge
-  static const Color successBg = Color(0xFFE1F9E9); // vert clair
-  static const Color dangerBg = Color(0xFFFCE3EA); // rouge clair
+  static const Color successBg = Color.fromARGB(255, 230, 247, 236); // vert clair
+  static const Color dangerBg = Color.fromARGB(255, 252, 237, 241); // rouge clair
 
   // Neutres (mode claire)
-  static const Color background = Color(0xFFEEF3FB); // gris clair
+  static const Color background = Color.fromARGB(255, 226, 234, 246); // gris clair
   static const Color card = Color(0xFFFFFFFF); // blanc
   static const Color textDark = Color(0xFF1A2330); // gris fonce
   static const Color muted = Color(0xFF67738A); // gris moyen
-  static const Color border = Color(0xFFE2E8F2); // gris clair
+  static const Color border = Color.fromARGB(255, 211, 224, 243); // gris clair
 }
 
 class AppTheme {
@@ -27,7 +27,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      scaffoldBackgroundColor: AppColors.background,
+      scaffoldBackgroundColor: const Color.fromARGB(255, 234, 240, 249),
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
         brightness: Brightness.light,
@@ -98,12 +98,12 @@ class AppTheme {
         headlineLarge: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w700,
-          color: Color(0XFFEDF1F6), // texte clair en mode sombre
+          color: Color.fromARGB(255, 219, 231, 246), // texte clair en mode sombre
         ),
         headlineMedium: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w700,
-          color: Color(0XFFEDF1F6), // texte clair en mode sombre
+          color: Color.fromARGB(255, 193, 199, 208), // texte clair en mode sombre
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
