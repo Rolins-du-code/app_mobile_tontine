@@ -1,6 +1,6 @@
- // dashboard pour le tresorier de la tontine 
+// dashboard pour le tresorier de la tontine
 
- import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mon_amical/features/dashboard/parametres_tontine_screen.dart';
 import '../../core/theme.dart';
@@ -8,7 +8,9 @@ import 'tabs/accueil_tab.dart';
 import 'tabs/cotisations_tab.dart';
 import 'tabs/emprunts_tab.dart';
 import 'tabs/membres_tab.dart';
+import '../../core/export_service.dart';
 import 'tabs/solidarite_tab.dart';
+import 'tabs/collation_tab.dart';
 
 class DashboardTontineScreen extends StatefulWidget {
   final String tontineId;
@@ -21,20 +23,18 @@ class DashboardTontineScreen extends StatefulWidget {
   });
 
   @override
-  State<DashboardTontineScreen> createState() =>
-      _DashboardTontineScreenState();
+  State<DashboardTontineScreen> createState() => _DashboardTontineScreenState();
 }
 
-class _DashboardTontineScreenState
-    extends State<DashboardTontineScreen> {
+class _DashboardTontineScreenState extends State<DashboardTontineScreen> {
   int _ongletActif = 0;
 
   bool get _estBureau => [
-        'president',
-        'tresorier',
-        'secretaire_general',
-        'commissaire_comptes',
-      ].contains(widget.role);
+    'president',
+    'tresorier',
+    'secretaire_general',
+    'commissaire_comptes',
+  ].contains(widget.role);
 
   @override
   Widget build(BuildContext context) {
@@ -54,10 +54,11 @@ class _DashboardTontineScreenState
         final nomTontine = t['nom'] as String? ?? '';
         final moisCourant = t['moisCourant'] as int? ?? 1;
         final dureeMois = t['dureeMois'] as int? ?? 10;
-        final progression =
-            dureeMois > 0 ? moisCourant / dureeMois : 0.0;
+        final progression = dureeMois > 0 ? moisCourant / dureeMois : 0.0;
 
         // Liste des onglets
+        final solidariteActive = t['solidariteActive'] as bool? ?? false;
+        final collationActive = t['collationActive'] as bool? ?? false;
         final onglets = [
           AccueilTab(
             tontineId: widget.tontineId,
@@ -83,7 +84,12 @@ class _DashboardTontineScreenState
             tontineData: t,
             estBureau: _estBureau,
           ),
-          SolidariteTab(
+          if (solidariteActive) SolidariteTab(
+            tontineId: widget.tontineId,
+            tontineData: t,
+            estBureau: _estBureau,
+          ),
+          if (collationActive) CollationTab(
             tontineId: widget.tontineId,
             tontineData: t,
             estBureau: _estBureau,
@@ -91,14 +97,17 @@ class _DashboardTontineScreenState
         ];
 
         return Scaffold(
-          backgroundColor: const Color.fromARGB(255, 233, 239, 248),
+            backgroundColor: const Color.fromARGB(255, 233, 239, 248),
 
-          // AppBar 
+          // AppBar
           appBar: AppBar(
             backgroundColor: AppColors.primary,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios,
-                  color: Colors.white, size: 18),
+              icon: const Icon(
+                Icons.arrow_back_ios,
+                color: Colors.white,
+                size: 18,
+              ),
               onPressed: () => Navigator.pop(context),
             ),
             title: Column(
@@ -127,12 +136,10 @@ class _DashboardTontineScreenState
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: progression,
-                          backgroundColor:
-                              Colors.white.withOpacity(0.3),
-                          valueColor:
-                              const AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
+                          backgroundColor: Colors.white.withOpacity(0.3),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                           minHeight: 3,
                         ),
                       ),
@@ -148,7 +155,9 @@ class _DashboardTontineScreenState
                 child: Center(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.accent.withOpacity(0.25),
                       borderRadius: BorderRadius.circular(20),
@@ -164,31 +173,74 @@ class _DashboardTontineScreenState
                   ),
                 ),
               ),
-                if (_estBureau)
-              IconButton(
-                icon: const Icon(Icons.settings_outlined,
-                    color: Colors.white, size: 20),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ParametresTontineScreen(
-                      tontineId: widget.tontineId,
-                      tontineData: t,
+              if (_estBureau)
+                IconButton(
+                  icon: const Icon(
+                    Icons.settings_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ParametresTontineScreen(
+                        tontineId: widget.tontineId,
+                        tontineData: t,
+                      ),
                     ),
                   ),
                 ),
-              ),
+
+                // Dans actions de l'AppBar :
+                if (_estBureau)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.download_outlined,
+                        color: Colors.white),
+                    onSelected: (value) async {
+                      if (value == 'pdf') {
+                        await ExportService.exporterTontinePDF(
+                          tontineId: widget.tontineId,
+                          tontineData: t,
+                        );
+                      } else {
+                        await ExportService.exporterCSV(
+                          tontineId: widget.tontineId,
+                          tontineData: t,
+                        );
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'pdf',
+                        child: Row(
+                          children: [
+                            Icon(Icons.picture_as_pdf_outlined,
+                                color: AppColors.danger),
+                            SizedBox(width: 10),
+                            Text('Exporter en PDF'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'csv',
+                        child: Row(
+                          children: [
+                            Icon(Icons.table_chart_outlined,
+                                color: AppColors.success),
+                            SizedBox(width: 10),
+                            Text('Exporter en CSV'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
             ],
-          
           ),
 
-          // Corps 
-          body: IndexedStack(
-            index: _ongletActif,
-            children: onglets,
-          ),
+          // Corps
+          body: IndexedStack(index: _ongletActif, children: onglets),
 
-          // Navigation bas 
+          // Navigation bas
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _ongletActif,
             onTap: (i) => setState(() => _ongletActif = i),
@@ -200,32 +252,38 @@ class _DashboardTontineScreenState
               fontSize: 11,
             ),
             unselectedLabelStyle: const TextStyle(fontSize: 11),
-            items: const [
-              BottomNavigationBarItem(
+            items: [
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.home_outlined),
                 activeIcon: Icon(Icons.home),
                 label: 'Accueil',
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.payments_outlined),
                 activeIcon: Icon(Icons.payments),
                 label: 'Cotisations',
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.handshake_outlined),
                 activeIcon: Icon(Icons.handshake),
                 label: 'Emprunts',
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.people_outline),
                 activeIcon: Icon(Icons.people),
                 label: 'Membres',
               ),
-              BottomNavigationBarItem(
+
+              if (solidariteActive) BottomNavigationBarItem(
                 icon: Icon(Icons.favorite_outline),
                 activeIcon: Icon(Icons.favorite),
                 label: 'Solidarité',
-              )
+              ),
+              if (collationActive) BottomNavigationBarItem(
+                icon: Icon(Icons.restaurant_outlined),
+                activeIcon: Icon(Icons.restaurant),
+                label: 'Collation',
+              ),
             ],
           ),
         );

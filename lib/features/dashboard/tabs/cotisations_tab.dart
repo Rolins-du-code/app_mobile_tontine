@@ -3,6 +3,7 @@
  import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme.dart';
+import '../../../core/notification_service.dart';
 
 class CotisationsTab extends StatelessWidget {
   final String tontineId;
@@ -351,7 +352,17 @@ class CotisationsTab extends StatelessWidget {
         ],
       ),
     );
-
+        // Après avoir enregistré le paiement, notifie le membre
+        await NotificationService.envoyer(
+          membreUid: membreUid,
+          titre: 'Cotisation enregistrée ✅',
+          message:
+              'Votre cotisation de $montant FCFA pour le '
+              'mois $mois a été enregistrée.',
+          type: 'cotisation',
+          tontineId: tontineId,
+          tontineNom: tontineData['nom'] as String? ?? '',
+        );
     if (confirm != true) return;
 
     try {
@@ -385,4 +396,6 @@ class CotisationsTab extends StatelessWidget {
       }
     }
   }
+
+
 }

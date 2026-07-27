@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/notification_service.dart';
 import '../../../core/theme.dart';
 
 class EmpruntsTab extends StatelessWidget {
@@ -38,18 +39,14 @@ class EmpruntsTab extends StatelessWidget {
               tabs: [
                 const Tab(text: 'Mes emprunts'),
                 const Tab(text: 'Demander'),
-                if (estBureau)
-                  const Tab(text: 'Validation'),
+                if (estBureau) const Tab(text: 'Validation'),
               ],
             ),
           ),
           Expanded(
             child: TabBarView(
               children: [
-                _MesEmprunts(
-                  tontineId: tontineId,
-                  uid: uid,
-                ),
+                _MesEmprunts(tontineId: tontineId, uid: uid),
                 _DemandeEmprunt(
                   tontineId: tontineId,
                   uid: uid,
@@ -69,15 +66,12 @@ class EmpruntsTab extends StatelessWidget {
   }
 }
 
-//  Mes emprunts 
+//  Mes emprunts
 class _MesEmprunts extends StatelessWidget {
   final String tontineId;
   final String uid;
 
-  const _MesEmprunts({
-    required this.tontineId,
-    required this.uid,
-  });
+  const _MesEmprunts({required this.tontineId, required this.uid});
 
   @override
   Widget build(BuildContext context) {
@@ -89,10 +83,8 @@ class _MesEmprunts extends StatelessWidget {
           .where('demandeurUid', isEqualTo: uid)
           .snapshots(),
       builder: (context, snap) {
-        if (snap.connectionState ==
-            ConnectionState.waiting) {
-          return const Center(
-              child: CircularProgressIndicator());
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
         }
 
         final emprunts = snap.data?.docs ?? [];
@@ -102,17 +94,21 @@ class _MesEmprunts extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.handshake_outlined,
-                    size: 50, color: AppColors.muted),
+                Icon(
+                  Icons.handshake_outlined,
+                  size: 50,
+                  color: AppColors.muted,
+                ),
                 SizedBox(height: 12),
-                Text('Aucun emprunt',
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700)),
+                Text(
+                  'Aucun emprunt',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
                 SizedBox(height: 6),
-                Text('Vos emprunts apparaîtront ici.',
-                    style:
-                        TextStyle(color: AppColors.muted)),
+                Text(
+                  'Vos emprunts apparaîtront ici.',
+                  style: TextStyle(color: AppColors.muted),
+                ),
               ],
             ),
           );
@@ -122,8 +118,7 @@ class _MesEmprunts extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           itemCount: emprunts.length,
           itemBuilder: (context, i) {
-            final e = emprunts[i].data()
-                as Map<String, dynamic>;
+            final e = emprunts[i].data() as Map<String, dynamic>;
             return _CarteEmprunt(
               data: e,
               afficherRemboursement: false,
@@ -136,7 +131,7 @@ class _MesEmprunts extends StatelessWidget {
   }
 }
 
-//  Demande d'emprunt 
+//  Demande d'emprunt
 class _DemandeEmprunt extends StatefulWidget {
   final String tontineId;
   final String uid;
@@ -148,12 +143,10 @@ class _DemandeEmprunt extends StatefulWidget {
   });
 
   @override
-  State<_DemandeEmprunt> createState() =>
-      _DemandeEmpruntState();
+  State<_DemandeEmprunt> createState() => _DemandeEmpruntState();
 }
 
-class _DemandeEmpruntState
-    extends State<_DemandeEmprunt> {
+class _DemandeEmpruntState extends State<_DemandeEmprunt> {
   final _formKey = GlobalKey<FormState>();
   final _montantController = TextEditingController();
   final _motifController = TextEditingController();
@@ -161,17 +154,13 @@ class _DemandeEmpruntState
   bool _isLoading = false;
 
   // Durée max = durée de la tontine (synchronisée)
-  int get _dureeTontine =>
-      widget.tontineData['dureeMois'] as int? ?? 12;
+  int get _dureeTontine => widget.tontineData['dureeMois'] as int? ?? 12;
 
   // Taux et type d'intérêt depuis la config tontine
   double get _taux =>
-      (widget.tontineData['tauxInteret'] as num?)
-          ?.toDouble() ??
-      3.0;
+      (widget.tontineData['tauxInteret'] as num?)?.toDouble() ?? 3.0;
   String get _typeInteret =>
-      widget.tontineData['typeInteret'] as String? ??
-      'simple';
+      widget.tontineData['typeInteret'] as String? ?? 'simple';
   bool get _interetsActifs => _taux > 0;
 
   @override
@@ -212,11 +201,11 @@ class _DemandeEmpruntState
         mensualite = capital / _dureeMois;
         totalInterets = 0;
       } else {
-        mensualite = capital *
+        mensualite =
+            capital *
             (r * pow(1 + r, _dureeMois)) /
             (pow(1 + r, _dureeMois) - 1);
-        totalInterets =
-            (mensualite * _dureeMois) - capital;
+        totalInterets = (mensualite * _dureeMois) - capital;
       }
     }
 
@@ -239,8 +228,7 @@ class _DemandeEmpruntState
           .doc(widget.tontineId)
           .collection('emprunts')
           .where('demandeurUid', isEqualTo: widget.uid)
-          .where('statut',
-              whereIn: ['en_attente', 'approuve'])
+          .where('statut', whereIn: ['en_attente', 'approuve'])
           .limit(1)
           .get();
 
@@ -248,8 +236,7 @@ class _DemandeEmpruntState
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                  'Vous avez déjà un emprunt en cours.'),
+              content: Text('Vous avez déjà un emprunt en cours.'),
             ),
           );
         }
@@ -263,9 +250,7 @@ class _DemandeEmpruntState
           .get();
 
       final nom = membreDoc['nom'] as String? ?? '';
-      final capital =
-          int.tryParse(_montantController.text.trim()) ??
-              0;
+      final capital = int.tryParse(_montantController.text.trim()) ?? 0;
       final calc = _calculer(capital);
 
       await FirebaseFirestore.instance
@@ -273,23 +258,20 @@ class _DemandeEmpruntState
           .doc(widget.tontineId)
           .collection('emprunts')
           .add({
-        'demandeurUid': widget.uid,
-        'demandeurNom': nom,
-        'montant': capital,
-        'motif': _motifController.text.trim(),
-        'dureeMois': _dureeMois,
-        'statut': 'en_attente',
-        'montantRembourse': 0,
-        'tauxInteret': _taux,
-        'typeInteret': _typeInteret,
-        'totalInterets': calc['totalInterets']!
-            .toStringAsFixed(0),
-        'totalARembourser':
-            calc['total']!.toStringAsFixed(0),
-        'mensualiteEstimee':
-            calc['mensualite']!.toStringAsFixed(0),
-        'dateCreation': FieldValue.serverTimestamp(),
-      });
+            'demandeurUid': widget.uid,
+            'demandeurNom': nom,
+            'montant': capital,
+            'motif': _motifController.text.trim(),
+            'dureeMois': _dureeMois,
+            'statut': 'en_attente',
+            'montantRembourse': 0,
+            'tauxInteret': _taux,
+            'typeInteret': _typeInteret,
+            'totalInterets': calc['totalInterets']!.toStringAsFixed(0),
+            'totalARembourser': calc['total']!.toStringAsFixed(0),
+            'mensualiteEstimee': calc['mensualite']!.toStringAsFixed(0),
+            'dateCreation': FieldValue.serverTimestamp(),
+          });
 
       if (!mounted) return;
 
@@ -299,15 +281,14 @@ class _DemandeEmpruntState
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'Demande envoyée ! En attente de validation.'),
+          content: Text('Demande envoyée ! En attente de validation.'),
           backgroundColor: AppColors.success,
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur : $e')));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -315,8 +296,7 @@ class _DemandeEmpruntState
 
   @override
   Widget build(BuildContext context) {
-    final capital =
-        int.tryParse(_montantController.text) ?? 0;
+    final capital = int.tryParse(_montantController.text) ?? 0;
     final calc = _calculer(capital);
 
     return SingleChildScrollView(
@@ -326,38 +306,32 @@ class _DemandeEmpruntState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             const Text(
               'Faire une demande d\'emprunt',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             const Text(
               'Votre demande sera examinée par le trésorier.',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.muted,
-              ),
+              style: TextStyle(fontSize: 13, color: AppColors.muted),
             ),
 
             const SizedBox(height: 24),
 
-            // Montant 
-            const Text('Montant souhaité',
-                style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: AppColors.muted)),
+            // Montant
+            const Text(
+              'Montant souhaité',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: AppColors.muted,
+              ),
+            ),
             const SizedBox(height: 8),
             TextFormField(
               controller: _montantController,
               keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly
-              ],
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(
                 hintText: 'Ex : 50000',
                 prefixIcon: Icon(Icons.payments_outlined),
@@ -378,14 +352,16 @@ class _DemandeEmpruntState
 
             // ── Durée (synchronisée avec la tontine) ──
             Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Durée de remboursement',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: AppColors.muted)),
+                const Text(
+                  'Durée de remboursement',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppColors.muted,
+                  ),
+                ),
                 Text(
                   '$_dureeMois / $_dureeTontine mois',
                   style: const TextStyle(
@@ -403,26 +379,25 @@ class _DemandeEmpruntState
               divisions: _dureeTontine - 1,
               activeColor: AppColors.primary,
               label: '$_dureeMois mois',
-              onChanged: (v) =>
-                  setState(() => _dureeMois = v.toInt()),
+              onChanged: (v) => setState(() => _dureeMois = v.toInt()),
             ),
             Text(
               'Maximum : $_dureeTontine mois '
               '(durée de la tontine)',
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.muted,
-              ),
+              style: const TextStyle(fontSize: 11, color: AppColors.muted),
             ),
 
             const SizedBox(height: 20),
 
-            //  Motif 
-            const Text('Motif de l\'emprunt',
-                style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: AppColors.muted)),
+            //  Motif
+            const Text(
+              'Motif de l\'emprunt',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: AppColors.muted,
+              ),
+            ),
             const SizedBox(height: 8),
             TextFormField(
               controller: _motifController,
@@ -433,9 +408,7 @@ class _DemandeEmpruntState
                     'de votre demande...',
               ),
               validator: (v) =>
-                  v == null || v.trim().isEmpty
-                      ? 'Entrez un motif'
-                      : null,
+                  v == null || v.trim().isEmpty ? 'Entrez un motif' : null,
             ),
 
             // ── Simulation (uniquement si taux > 0) ──
@@ -444,24 +417,20 @@ class _DemandeEmpruntState
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppColors.primary
-                      .withOpacity(0.06),
+                  color: AppColors.primary.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.primary
-                        .withOpacity(0.2),
-                  ),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
                 ),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         const Icon(
-                            Icons.calculate_outlined,
-                            color: AppColors.primary,
-                            size: 16),
+                          Icons.calculate_outlined,
+                          color: AppColors.primary,
+                          size: 16,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           _interetsActifs
@@ -478,9 +447,11 @@ class _DemandeEmpruntState
                     const SizedBox(height: 10),
                     _ligne('Capital', '$capital FCFA'),
                     if (_interetsActifs) ...[
-                      _ligne('Taux mensuel',
-                          '${_taux.toStringAsFixed(1)} %'
-                          ' · $_typeInteret'),
+                      _ligne(
+                        'Taux mensuel',
+                        '${_taux.toStringAsFixed(1)} %'
+                            ' · $_typeInteret',
+                      ),
                       _ligne(
                         'Intérêts totaux',
                         '${calc['totalInterets']!.toStringAsFixed(0)} FCFA',
@@ -505,15 +476,19 @@ class _DemandeEmpruntState
               onPressed: _isLoading ? null : _soumettre,
               child: _isLoading
                   ? const SizedBox(
-                      height: 20, width: 20,
+                      height: 20,
+                      width: 20,
                       child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2))
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
                   : const Text(
                       'Soumettre la demande',
                       style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
             ),
           ],
@@ -527,13 +502,14 @@ class _DemandeEmpruntState
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 12, color: AppColors.muted)),
-        Text(valeur,
-            style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+        ),
+        Text(
+          valeur,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        ),
       ],
     ),
   );
@@ -558,10 +534,8 @@ class _ValidationEmprunts extends StatelessWidget {
           .collection('emprunts')
           .snapshots(),
       builder: (context, snap) {
-        if (snap.connectionState ==
-            ConnectionState.waiting) {
-          return const Center(
-              child: CircularProgressIndicator());
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
         }
 
         final emprunts = snap.data?.docs ?? [];
@@ -571,13 +545,16 @@ class _ValidationEmprunts extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle_outline,
-                    size: 50, color: AppColors.muted),
+                Icon(
+                  Icons.check_circle_outline,
+                  size: 50,
+                  color: AppColors.muted,
+                ),
                 SizedBox(height: 12),
-                Text('Aucune demande',
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700)),
+                Text(
+                  'Aucune demande',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
               ],
             ),
           );
@@ -587,44 +564,34 @@ class _ValidationEmprunts extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           itemCount: emprunts.length,
           itemBuilder: (context, i) {
-            final e = emprunts[i].data()
-                as Map<String, dynamic>;
+            final e = emprunts[i].data() as Map<String, dynamic>;
             final id = emprunts[i].id;
-            final statut =
-                e['statut'] as String? ?? '';
+            final statut = e['statut'] as String? ?? '';
 
             return _CarteEmprunt(
               data: e,
-              afficherRemboursement:
-                  statut == 'approuve',
+              afficherRemboursement: statut == 'approuve',
               onRembourser: statut == 'approuve'
-                  ? () => _enregistrerRemboursement(
-                      context, id, e)
+                  ? () => _enregistrerRemboursement(context, id, e)
                   : null,
               actionsValidation: statut == 'en_attente'
                   ? Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () => _decider(
-                                context, id, 'refuse'),
+                            onPressed: () => _decider(context, id, 'refuse'),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor:
-                                  AppColors.danger,
-                              side: const BorderSide(
-                                  color: AppColors.danger),
+                              foregroundColor: AppColors.danger,
+                              side: const BorderSide(color: AppColors.danger),
                             ),
-                            child:
-                                const Text('Refuser'),
+                            child: const Text('Refuser'),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                        child: ElevatedButton(
-                            onPressed: () => _decider(
-                                context, id, 'approuve'),
-                            child:
-                                const Text('Approuver'),
+                          child: ElevatedButton(
+                            onPressed: () => _decider(context, id, 'approuve'),
+                            child: const Text('Approuver'),
                           ),
                         ),
                       ],
@@ -651,13 +618,11 @@ class _ValidationEmprunts extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Confirmer'),
           ),
         ],
@@ -672,18 +637,43 @@ class _ValidationEmprunts extends StatelessWidget {
         .collection('emprunts')
         .doc(empruntId)
         .update({
-      'statut': decision,
-      'dateDecision': FieldValue.serverTimestamp(),
-      'decidePar':
-          FirebaseAuth.instance.currentUser?.uid ?? '',
-    });
+          'statut': decision,
+          'dateDecision': FieldValue.serverTimestamp(),
+          'decidePar': FirebaseAuth.instance.currentUser?.uid ?? '',
+        });
+
+    // Récupère l'UID du demandeur
+    final empruntDoc = await FirebaseFirestore.instance
+        .collection('tontines')
+        .doc(tontineId)
+        .collection('emprunts')
+        .doc(empruntId)
+        .get();
+
+    final demandeurUid = empruntDoc['demandeurUid'] as String? ?? '';
+    final montant = empruntDoc['montant'] as int? ?? 0;
+
+    if (demandeurUid.isNotEmpty) {
+      await NotificationService.envoyer(
+        membreUid: demandeurUid,
+        titre: decision == 'approuve'
+            ? 'Emprunt approuvé ✅'
+            : 'Emprunt refusé ❌',
+        message: decision == 'approuve'
+            ? 'Votre demande de $montant FCFA a été approuvée.'
+            : 'Votre demande de $montant FCFA a été refusée.',
+        type: 'emprunt',
+        tontineId: tontineId,
+        tontineNom: tontineData['nom'] as String? ?? '',
+      );
+    }
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(decision == 'approuve'
-              ? 'Emprunt approuvé !'
-              : 'Demande refusée'),
+          content: Text(
+            decision == 'approuve' ? 'Emprunt approuvé !' : 'Demande refusée',
+          ),
           backgroundColor: decision == 'approuve'
               ? AppColors.success
               : AppColors.danger,
@@ -699,15 +689,13 @@ class _ValidationEmprunts extends StatelessWidget {
   ) async {
     final montantController = TextEditingController();
     final montantTotal = data['montant'] as int? ?? 0;
-    final deja =
-        data['montantRembourse'] as int? ?? 0;
+    final deja = data['montantRembourse'] as int? ?? 0;
     final reste = montantTotal - deja;
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title:
-            const Text('Enregistrer un remboursement'),
+        title: const Text('Enregistrer un remboursement'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -716,17 +704,13 @@ class _ValidationEmprunts extends StatelessWidget {
               'Capital : $montantTotal FCFA\n'
               'Déjà remboursé : $deja FCFA\n'
               'Reste : $reste FCFA',
-              style: const TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 13),
+              style: const TextStyle(color: AppColors.muted, fontSize: 13),
             ),
             const SizedBox(height: 14),
             TextFormField(
               controller: montantController,
               keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly
-              ],
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(
                 labelText: 'Montant versé',
                 suffixText: 'FCFA',
@@ -736,13 +720,11 @@ class _ValidationEmprunts extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Enregistrer'),
           ),
         ],
@@ -751,24 +733,21 @@ class _ValidationEmprunts extends StatelessWidget {
 
     if (confirm != true) return;
 
-    final versement =
-        int.tryParse(montantController.text) ?? 0;
+    final versement = int.tryParse(montantController.text) ?? 0;
     final nouveauTotal = deja + versement;
-    final nouveauStatut =
-        nouveauTotal >= montantTotal
-            ? 'rembourse'
-            : 'approuve';
-          await FirebaseFirestore.instance
+    final nouveauStatut = nouveauTotal >= montantTotal
+        ? 'rembourse'
+        : 'approuve';
+    await FirebaseFirestore.instance
         .collection('tontines')
         .doc(tontineId)
         .collection('emprunts')
         .doc(empruntId)
         .update({
-      'montantRembourse': nouveauTotal,
-      'statut': nouveauStatut,
-      'dernierRemboursement':
-          FieldValue.serverTimestamp(),
-    });
+          'montantRembourse': nouveauTotal,
+          'statut': nouveauStatut,
+          'dernierRemboursement': FieldValue.serverTimestamp(),
+        });
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -785,7 +764,7 @@ class _ValidationEmprunts extends StatelessWidget {
   }
 }
 
-// Carte emprunt réutilisable 
+// Carte emprunt réutilisable
 class _CarteEmprunt extends StatelessWidget {
   final Map<String, dynamic> data;
   final bool afficherRemboursement;
@@ -803,21 +782,14 @@ class _CarteEmprunt extends StatelessWidget {
   Widget build(BuildContext context) {
     final statut = data['statut'] as String? ?? '';
     final montant = data['montant'] as int? ?? 0;
-    final montantRembourse =
-        data['montantRembourse'] as int? ?? 0;
-    final demandeurNom =
-        data['demandeurNom'] as String? ?? '';
+    final montantRembourse = data['montantRembourse'] as int? ?? 0;
+    final demandeurNom = data['demandeurNom'] as String? ?? '';
     final motif = data['motif'] as String? ?? '';
-    final dureeMois =
-        data['dureeMois'] as int? ?? 1;
-    final typeInteret =
-        data['typeInteret'] as String? ?? 'simple';
-    final taux =
-        (data['tauxInteret'] as num?)?.toDouble() ?? 0;
-    final totalARembourser =
-        data['totalARembourser'] as String?;
-    final mensualite =
-        data['mensualiteEstimee'] as String?;
+    final dureeMois = data['dureeMois'] as int? ?? 1;
+    final typeInteret = data['typeInteret'] as String? ?? 'simple';
+    final taux = (data['tauxInteret'] as num?)?.toDouble() ?? 0;
+    final totalARembourser = data['totalARembourser'] as String?;
+    final mensualite = data['mensualiteEstimee'] as String?;
 
     Color couleur;
     String label;
@@ -839,9 +811,7 @@ class _CarteEmprunt extends StatelessWidget {
         label = 'Refusé';
     }
 
-    final progression = montant > 0
-        ? montantRembourse / montant
-        : 0.0;
+    final progression = montant > 0 ? montantRembourse / montant : 0.0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -849,92 +819,96 @@ class _CarteEmprunt extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: couleur.withOpacity(0.3)),
+        border: Border.all(color: couleur.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           // En-tête
           Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(demandeurNom,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15)),
+              Text(
+                demandeurNom,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: couleur.withOpacity(0.1),
-                  borderRadius:
-                      BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(label,
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: couleur)),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: couleur,
+                  ),
+                ),
               ),
             ],
           ),
 
           const SizedBox(height: 6),
 
-          Text('$montant FCFA · $dureeMois mois',
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primary)),
-                   // Intérêts si applicable
+          Text(
+            '$montant FCFA · $dureeMois mois',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primary,
+            ),
+          ),
+          // Intérêts si applicable
           if (taux > 0) ...[
             const SizedBox(height: 4),
             Text(
               'Intérêt $typeInteret · ${taux.toStringAsFixed(1)}%'
               '${totalARembourser != null ? ' · Total : $totalARembourser FCFA' : ''}',
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.muted),
+              style: const TextStyle(fontSize: 12, color: AppColors.muted),
             ),
             if (mensualite != null)
               Text(
                 'Mensualité : $mensualite FCFA',
-                style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.muted),
+                style: const TextStyle(fontSize: 12, color: AppColors.muted),
               ),
           ],
 
           if (motif.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(motif,
-                style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.muted)),
+            Text(
+              motif,
+              style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            ),
           ],
 
           // Barre de remboursement
-          if (statut == 'approuve' ||
-              statut == 'rembourse') ...[
+          if (statut == 'approuve' || statut == 'rembourse') ...[
             const SizedBox(height: 10),
             Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'Remboursé : $montantRembourse / $montant FCFA',
                   style: const TextStyle(
-                      fontSize: 11.5,
-                      color: AppColors.muted),
+                    fontSize: 11.5,
+                    color: AppColors.muted,
+                  ),
                 ),
                 Text(
                   '${(progression * 100).toStringAsFixed(0)}%',
                   style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
                 ),
               ],
             ),
@@ -944,28 +918,22 @@ class _CarteEmprunt extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progression,
                 backgroundColor: AppColors.border,
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(
-                        couleur),
+                valueColor: AlwaysStoppedAnimation<Color>(couleur),
                 minHeight: 5,
               ),
             ),
           ],
 
-          if (afficherRemboursement &&
-              onRembourser != null) ...[
+          if (afficherRemboursement && onRembourser != null) ...[
             const SizedBox(height: 10),
             OutlinedButton.icon(
               onPressed: onRembourser,
               icon: const Icon(Icons.payment, size: 16),
-              label: const Text(
-                  'Enregistrer un remboursement'),
+              label: const Text('Enregistrer un remboursement'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
-                side: const BorderSide(
-                    color: AppColors.primary),
-                minimumSize:
-                    const Size(double.infinity, 40),
+                side: const BorderSide(color: AppColors.primary),
+                minimumSize: const Size(double.infinity, 40),
               ),
             ),
           ],

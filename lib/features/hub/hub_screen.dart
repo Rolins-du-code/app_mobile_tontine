@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme.dart';
+import '../notifications/notifications_screen.dart';
 import 'create_tontine_screen.dart';
 import '../dashboard/dashboard_tontine_screen.dart';
 
@@ -97,6 +98,55 @@ class HubScreen extends StatelessWidget {
                         },
                       ),
                       const SizedBox(width: 10),
+
+                      // Dans le Row de l'en-tête, avant IconButton logout :
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('membres')
+                        .doc(uid)
+                        .collection('notifications')
+                        .where('lu', isEqualTo: false)
+                        .snapshots(),
+                    builder: (context, snap) {
+                      final nb = snap.data?.docs.length ?? 0;
+                      return Stack(
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                                Icons.notifications_outlined),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const NotificationsScreen(),
+                              ),
+                            ),
+                          ),
+                          if (nb > 0)
+                            Positioned(
+                              right: 8, top: 8,
+                              child: Container(
+                                width: 16, height: 16,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.danger,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '$nb',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                       IconButton(
                         icon: const Icon(Icons.logout),
                         onPressed: () async {
@@ -107,6 +157,7 @@ class HubScreen extends StatelessWidget {
                         },
                       ),
                     ],
+                    
                   ),
                 ],
               ),
