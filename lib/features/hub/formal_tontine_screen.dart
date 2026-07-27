@@ -120,6 +120,7 @@ class _FormalTontineScreenState
         // Migration vers le bon UID
         final ancienDoc = resultat.docs.first;
         final data =
+            // ignore: unnecessary_cast
             ancienDoc.data() as Map<String, dynamic>;
         await FirebaseFirestore.instance
             .collection('membres')

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:mon_amical/features/onboarding/onboarding_screen.dart';
 import 'firebase_options.dart';
 import 'core/theme.dart';
 import 'features/auth/splash_screen.dart';
@@ -48,6 +49,8 @@ class _MonAmicaleAppState extends State<MonAmicaleApp> {
         '/hub': (context) => const HubScreen(),
         
         '/bureau': (context) => const HubScreen(),
+
+        '/onboarding': (context) => const OnboardingScreen(),
       },
     );
   }

@@ -150,8 +150,8 @@ class CotisationsTab extends StatelessWidget {
                   final membreUid =
                       m['membreUid'] as String? ?? '';
 
-                  return FutureBuilder<QuerySnapshot>(
-                    future: FirebaseFirestore.instance
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
                         .collection('tontines')
                         .doc(tontineId)
                         .collection('cotisations')
@@ -159,8 +159,7 @@ class CotisationsTab extends StatelessWidget {
                             isEqualTo: membreUid)
                         .where('mois',
                             isEqualTo: moisCourant)
-                        .limit(1)
-                        .get(),
+                       .snapshots(), // actualisation a temps reel
                     builder: (context, snapCotis) {
                       final paye = snapCotis.hasData &&
                           snapCotis.data!.docs.isNotEmpty;

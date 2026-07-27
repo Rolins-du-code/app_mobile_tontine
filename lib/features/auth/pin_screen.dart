@@ -89,7 +89,7 @@ class _PinScreenState extends State<PinScreen> {
       final uid = UserCredential.user!.uid;
 
       //Sauvegarde le profil dans FireStore
-      await FirebaseFirestore.instance.collection('membres').doc(uid).set({
+      await FirebaseFirestore.instance.collection('president').doc(uid).set({
         'nom': widget.nom,
         'telephone': telephone,
         'role': 'membre',

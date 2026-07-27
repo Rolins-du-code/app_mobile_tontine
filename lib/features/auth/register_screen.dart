@@ -1,6 +1,7 @@
 //fichier qui gere l'inscription des utilisateur qui viennes des nouveaux utilisateur sur la plate forme
 
 import 'package:flutter/material.dart';
+import '../../core/app_logo.dart';
 import '../../core/theme.dart';
 import 'pin_screen.dart';
 
@@ -56,16 +57,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       color: AppColors.primary,
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: const Center(
-                      child: Text(
-                        'MA',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
+
+                    // logo de l'application
+                    child: const AppLogo(size: 80),
+                    // child: const Center(
+                    //   child: Text(
+                    //     'MA',
+                    //     style: TextStyle(
+                    //       color: Colors.white,
+                    //       fontSize: 22,
+                    //       fontWeight: FontWeight.w800,
+                    //     ),
+                    //   ),
+                    // ),
                   ),
                 ),
                 const SizedBox(height: 20),

@@ -1,6 +1,8 @@
 // lancement de l'application
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/app_logo.dart';
 import '../../core/theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -21,32 +23,34 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    //on cree une animation de 1 seconde
+    //on cree une animation
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
     _scaleAnimation = Tween<double>(
       begin: 0.7,
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
-
     // on lance l'animation au demarrage
-
     _controller.forward();
 
-    // Apres 3seconde on navigue vers l'ecrant suivant
+    //on lance la redirection
+    _redirectToNextScreen();
+  }
 
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
-      }
-    });
+  //fonction dedie pour gere le dalai et le await
+  Future<void> _redirectToNextScreen() async {
+    final prefs = await SharedPreferences.getInstance();
+    final done = prefs.getBool('onboarding_done') ?? false;
+
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, done ? '/login' : '/onboarding');
   }
 
   @override
@@ -68,26 +72,27 @@ class _SplashScreenState extends State<SplashScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Logo: cercle blanc avec initial
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'Ma',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                ),
+                const AppLogo(size: 80),
 
+                // Container(
+                //   width: 100,
+                //   height: 100,
+                //   decoration: BoxDecoration(
+                //     color: Colors.white,
+                //     borderRadius: BorderRadius.circular(28),
+                //   ),
+                //   child: const Center(
+                //     child: Text(
+                //       'Ma',
+                //       style: TextStyle(
+                //         color: AppColors.primary,
+                //         fontSize: 36,
+                //         fontWeight: FontWeight.w800,
+                //         letterSpacing: 1,
+                //       ),
+                //     ),
+                //   ),
+                // ),
                 const SizedBox(height: 24),
 
                 // Nom de l'app
@@ -105,14 +110,11 @@ class _SplashScreenState extends State<SplashScreen>
                 // Tagline
                 Text(
                   'Vos Tontine, Reunion ou Cotisation.',
-                  style: TextStyle(
-                    color:Colors.white,
-                    fontSize: 15,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 15),
                 ),
                 const SizedBox(height: 60),
-                // indicateur de changement
 
+                // indicateur de changement
                 SizedBox(
                   width: 24,
                   height: 24,

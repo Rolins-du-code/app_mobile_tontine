@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/app_logo.dart';
 import '../../core/theme.dart';
 import 'register_screen.dart';
 // importation lier la connexion dans firebase
@@ -126,31 +127,33 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
               const SizedBox(height: 40),
 
               // Logo
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Center(
-                  child: Text(
-                    'MA',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
+
+              const AppLogo(size: 80),
+              // Container(
+              //   width: 64,
+              //   height: 64,
+              //   decoration: BoxDecoration(
+              //     color: AppColors.primary,
+              //     borderRadius: BorderRadius.circular(18),
+              //   ),
+              //   child: const Center(
+              //     child: Text(
+              //       'MA',
+              //       style: TextStyle(
+              //         color: Colors.white,
+              //         fontSize: 22,
+              //         fontWeight: FontWeight.w800,
+              //       ),
+              //     ),
+              //   ),
+              // ),
 
               const SizedBox(height: 16),
               const Text(
