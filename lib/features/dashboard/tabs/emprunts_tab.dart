@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/notification_service.dart';
+// import '../../../core/notification_service.dart';
 import '../../../core/theme.dart';
 
 class EmpruntsTab extends StatelessWidget {
@@ -1160,8 +1160,7 @@ class _CarteEmprunt extends StatelessWidget {
     required this.data,
     required this.afficherRemboursement,
     required this.onRembourser,
-    this.actionsValidation,
-  });
+  }) : actionsValidation = null;
 
   @override
   Widget build(BuildContext context) {

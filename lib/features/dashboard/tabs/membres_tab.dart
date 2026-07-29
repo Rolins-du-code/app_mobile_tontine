@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme.dart';
 // onglet reserver au membres pour le dashboard du tresorier de la tontine
 import '../ajouter_membre_screen.dart';
+import '../gestion_membres_screen.dart';
 
 class MembresTab extends StatelessWidget {
   final String tontineId;
@@ -50,34 +51,63 @@ class MembresTab extends StatelessWidget {
                   Text(
                     '${membres.length} membre(s)',
                     style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
-                  if (estBureau)
-                    ElevatedButton.icon(
-                      
-                        //  ajouter un membre
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AjouterMembreScreen(
-                            tontineId: tontineId,
-                          ),
-                      ),
-                      ),
-                      
-                      icon: const Icon(Icons.person_add,
-                          size: 16),
-                      label: const Text('Ajouter'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        textStyle:
-                            const TextStyle(fontSize: 12),
-                        minimumSize: Size.zero,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
                       ),
                     ),
+                if (estBureau)
+    PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert),
+      onSelected: (v) {
+        if (v == 'ajouter') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AjouterMembreScreen(
+                  tontineId: tontineId),
+            ),
+          );
+        } else if (v == 'gerer') {
+          var tontineData = (snap.data!.docs.first.data()
+              as Map<String, dynamic>);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => GestionMembresScreen(
+                tontineId: tontineId,
+                nomTontine: tontineData['nom']
+                        as String? ??
+                    '',
+              ),
+            ),
+          );
+        }
+      },
+      itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'ajouter',
+          child: Row(
+            children: [
+              Icon(Icons.person_add,
+                  color: AppColors.primary, size: 18),
+              SizedBox(width: 10),
+              Text('Ajouter un membre'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'gerer',
+          child: Row(
+            children: [
+              Icon(Icons.manage_accounts,
+                  color: AppColors.accent, size: 18),
+              SizedBox(width: 10),
+              Text('Gérer les membres'),
+            ],
+          ),
+        ),
+      ],
+    ),
                 ],
               ),
             ),
