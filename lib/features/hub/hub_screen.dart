@@ -3,11 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mon_amical/features/profil/profil_screen.dart';
 import '../../core/theme.dart';
 import '../notifications/notifications_screen.dart';
 import 'create_tontine_screen.dart';
 import '../dashboard/dashboard_tontine_screen.dart';
-import '../profil/profil_screen.dart';
+// import '../profil/profil_screen.dart';
 
 class HubScreen extends StatelessWidget {
   const HubScreen({super.key});
@@ -81,7 +82,7 @@ class HubScreen extends StatelessWidget {
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const NotificationsScreen(),
+                                builder: (_) => const ProfilScreen(),
                               ),
                             ),
                         
@@ -102,7 +103,7 @@ class HubScreen extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          )
+                          ),
                           );
                         },
                       ),

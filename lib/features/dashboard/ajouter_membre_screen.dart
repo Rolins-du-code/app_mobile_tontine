@@ -167,50 +167,278 @@ class _AjouterMembreScreenState
   }
              // Dialogue de choix du rôle
   void _choisirRole() {
-    final roles = [
-      {'valeur': 'membre', 'label': 'Membre', 'icone': Icons.person_outline},
-      {'valeur': 'tresorier', 'label': 'Trésorier', 'icone': Icons.account_balance_wallet_outlined},
-      {'valeur': 'president', 'label': 'Président', 'icone': Icons.star_outline},
-      {'valeur': 'secretaire_general', 'label': 'Secrétaire général', 'icone': Icons.edit_note_outlined},
-      {'valeur': 'commissaire_comptes', 'label': 'Commissaire aux comptes', 'icone': Icons.fact_check_outlined},
-    ];
+  final roles = [
+    {'valeur': 'membre', 'label': 'Membre simple',
+      'icone': Icons.person_outline},
+    {'valeur': 'tresorier', 'label': 'Trésorier',
+      'icone': Icons.account_balance_wallet_outlined},
+    {'valeur': 'president', 'label': 'Président',
+      'icone': Icons.star_outline},
+    {'valeur': 'secretaire_general',
+      'label': 'Secrétaire général',
+      'icone': Icons.edit_note_outlined},
+    {'valeur': 'commissaire_comptes',
+      'label': 'Commissaire aux comptes',
+      'icone': Icons.fact_check_outlined},
+  ];
 
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20)),
+    ),
+    builder: (_) => Padding(
+      padding: const EdgeInsets.symmetric(
+          vertical: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Choisir un rôle',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              )),
+          ),
+          ...roles.map((r) => ListTile(
+            leading: Icon(r['icone'] as IconData,
+                color: AppColors.primary),
+            title: Text(r['label'] as String),
+            onTap: () {
+              Navigator.pop(context);
+              _ajouterMembre(r['valeur'] as String);
+            },
+          )),
+
+          //  Option co-souscription
+          const Divider(),
+          ListTile(
+            leading: const Icon(
+                Icons.people_alt_outlined,
+                color: AppColors.accent),
+            title: const Text(
+                'Co-souscription avec un membre existant',
+              style: TextStyle(
+                fontWeight: FontWeight.w700)),
+            subtitle: const Text(
+                'Partager un rang avec un autre membre',
+              style: TextStyle(fontSize: 12)),
+            onTap: () {
+              Navigator.pop(context);
+              _choisirCoSouscripteur();
+            },
+          ),
+        ],
       ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(bottom: 16),
-              child: Text(
-                'Choisir un rôle',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            ...roles.map((r) => ListTile(
-              leading: Icon(
-                r['icone'] as IconData,
-                color: AppColors.primary,
-              ),
-              title: Text(r['label'] as String),
+    ),
+  );
+}
+
+Future<void> _choisirCoSouscripteur() async {
+  // Récupère les membres existants de la tontine
+  final adhesions = await FirebaseFirestore.instance
+      .collection('tontines')
+      .doc(widget.tontineId)
+      .collection('adhesions')
+      .get();
+
+  if (!mounted) return;
+
+  String? uidChoisi;
+  String? nomChoisi;
+
+  await showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Choisir le co-souscripteur'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: adhesions.docs.length,
+          itemBuilder: (context, i) {
+            final m = adhesions.docs[i].data();
+            return ListTile(
+              title: Text(m['membreNom'] as String? ?? ''),
+              subtitle: Text(m['role'] as String? ?? ''),
               onTap: () {
+                uidChoisi = m['membreUid'] as String;
+                nomChoisi = m['membreNom'] as String;
                 Navigator.pop(context);
-                _ajouterMembre(r['valeur'] as String);
               },
-            )),
-          ],
+            );
+          },
         ),
       ),
+    ),
+  );
+
+  if (uidChoisi == null) return;
+
+  // Choisir la répartition
+  int partNouveauMembre = 50;
+
+  await showDialog(
+    context: context,
+    builder: (_) => StatefulBuilder(
+      builder: (ctx, setS) => AlertDialog(
+        title: const Text('Répartition'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${_membreTrouve!['nom']} et $nomChoisi\n'
+              'se partagent un rang dans cette tontine.',
+              textAlign: TextAlign.center,
+                  style: const TextStyle(
+                  color: AppColors.muted),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment:
+                  MainAxisAlignment.spaceEvenly,
+              children: [
+                Column(children: [
+                  Text(
+                    _membreTrouve!['nom']
+                        .toString()
+                        .split(' ')
+                        .first,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700)),
+                  Text('$partNouveauMembre%',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary,
+                    )),
+                ]),
+                const Text('/',
+                  style: TextStyle(
+                    fontSize: 24,
+                    color: AppColors.muted,
+                  )),
+                Column(children: [
+                  Text(
+                    nomChoisi!.split(' ').first,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700)),
+                  Text(
+                    '${100 - partNouveauMembre}%',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.accent,
+                    )),
+                ]),
+              ],
+            ),
+            Slider(
+              value: partNouveauMembre.toDouble(),
+              min: 10, max: 90, divisions: 8,
+              activeColor: AppColors.primary,
+              onChanged: (v) =>
+                  setS(() =>
+                      partNouveauMembre = v.toInt()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _ajouterCoSouscription(
+                uidChoisi!,
+                nomChoisi!,
+                partNouveauMembre,
+              );
+            },
+            child: const Text('Confirmer'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<void> _ajouterCoSouscription(
+  String uidExistant,
+  String nomExistant,
+  int partNouveauPct,
+) async {
+  setState(() => _isLoading = true);
+  try {
+    final adhesions = await FirebaseFirestore.instance
+        .collection('tontines')
+        .doc(widget.tontineId)
+        .collection('adhesions')
+        .get();
+    final nouvelOrdre = adhesions.docs.length + 1;
+
+    // Crée l'adhésion du nouveau membre
+    // avec référence au co-souscripteur
+    await FirebaseFirestore.instance
+        .collection('tontines')
+        .doc(widget.tontineId)
+        .collection('adhesions')
+        .doc(_uidTrouve)
+        .set({
+      'membreUid': _uidTrouve,
+      'membreNom': _membreTrouve!['nom'],
+      'role': 'membre',
+      'dateAdhesion': FieldValue.serverTimestamp(),
+      'statut': 'actif',
+      'ordre': nouvelOrdre,
+      'estCoSouscripteur': true,
+      'coAvec': uidExistant,
+      'coAvecNom': nomExistant,
+      'partPourcentage': partNouveauPct,
+    });
+
+    // Met à jour l'adhésion du membre existant
+    await FirebaseFirestore.instance
+        .collection('tontines')
+        .doc(widget.tontineId)
+        .collection('adhesions')
+        .doc(uidExistant)
+        .update({
+      'estCoSouscripteur': true,
+      'coAvec': _uidTrouve,
+      'coAvecNom': _membreTrouve!['nom'],
+      'partPourcentage': 100 - partNouveauPct,
+    });
+
+    // Ajoute la tontine dans les deux profils
+    await FirebaseFirestore.instance
+        .collection('membres')
+        .doc(_uidTrouve)
+        .update({
+      'tontines': FieldValue.arrayUnion(
+          [widget.tontineId]),
+    });
+  if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+            'Co-souscription créée avec succès !'),
+        backgroundColor: AppColors.success,
+      ),
     );
+    Navigator.pop(context);
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Erreur : $e')),
+    );
+  } finally {
+    setState(() => _isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {

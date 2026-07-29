@@ -5,8 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../core/app_logo.dart';
+import '../../core/theme_provider.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -466,6 +468,66 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   ),
 
                   const SizedBox(height: 16),
+
+                  Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Apparence',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              )),
+                            const SizedBox(height: 12),
+                            Consumer<ThemeProvider>(
+                              builder: (context, theme, _) =>
+                                  ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Container(
+                                  width: 40, height: 40,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary
+                                        .withOpacity(0.1),
+                                    borderRadius:
+                                        BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    theme.estSombre
+                                        ? Icons.wb_sunny_outlined
+                                        : Icons.nightlight_outlined,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                title: Text(
+                                  theme.estSombre
+                                      ? 'Mode sombre activé'
+                                      : 'Mode clair activé',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
+                                subtitle: const Text(
+                                  'Appuyer pour changer',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.muted)),
+                                trailing: Consumer<ThemeProvider>(
+                                  builder: (context, theme, _) =>
+                                      Switch(
+                                    value: theme.estSombre,
+                                    onChanged: (_) => theme.basculer(),
+                                    activeColor: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                   // Déconnexion 
                   OutlinedButton.icon(

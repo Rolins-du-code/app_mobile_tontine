@@ -55,7 +55,7 @@ class EmpruntsTab extends StatelessWidget {
                 if (estBureau)
                   _ValidationEmprunts(
                     tontineId: tontineId,
-                    tontineData: tontineData,
+                    tontineData: tontineData, role: '$role',
                   ),
               ],
             ),
@@ -519,116 +519,510 @@ class _DemandeEmpruntState extends State<_DemandeEmprunt> {
 class _ValidationEmprunts extends StatelessWidget {
   final String tontineId;
   final Map<String, dynamic> tontineData;
+  final String role;
 
   const _ValidationEmprunts({
     required this.tontineId,
     required this.tontineData,
+    required this.role,
+  });
+
+  // Ce que chaque rôle peut faire
+  bool get _peutValiderTresorier =>
+      role == 'tresorier';
+  bool get _peutValiderCommissaire =>
+      role == 'commissaire_comptes';
+  bool get _peutApprouverPresident =>
+      role == 'president';
+  bool get _lectureSeule =>
+      role == 'secretaire_general';
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Bandeau rôle
+        Container(
+          padding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 10),
+          color: AppColors.card,
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline,
+                  size: 16, color: AppColors.muted),
+              const SizedBox(width: 8),
+              Text(
+                _lectureSeule
+                    ? 'Secrétaire — lecture seule'
+                    : _peutValiderTresorier
+                        ? 'Trésorier — valide la disponibilité des fonds'
+                        : _peutValiderCommissaire
+                            ? 'Commissaire — valide la conformité'
+                            : 'Président — approuve l\'emprunt',
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.muted),
+              ),
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('tontines')
+                .doc(tontineId)
+                .collection('emprunts')
+                .snapshots(),
+            builder: (context, snap) {
+              if (snap.connectionState ==
+                  ConnectionState.waiting) {
+                return const Center(
+                    child: CircularProgressIndicator());
+              }
+
+              final emprunts =
+                  snap.data?.docs ?? [];
+
+              if (emprunts.isEmpty) {
+                return const Center(
+                  child: Text('Aucune demande.',
+                    style: TextStyle(
+                        color: AppColors.muted)),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: emprunts.length,
+                itemBuilder: (context, i) {
+                  final e = emprunts[i].data()
+                      as Map<String, dynamic>;
+                  final id = emprunts[i].id;
+                  final statut =
+                      e['statut'] as String? ??
+                          '';
+                  final valTresorier =
+                      e['valideTresorier']
+                          as bool? ?? false;
+                  final valCommissaire =
+                      e['valideCommissaire']
+                          as bool? ?? false;
+
+                  return _CarteEmpruntValidation(
+                    data: e,
+                    empruntId: id,
+                    tontineId: tontineId,
+                    role: role,
+                    lectureSeule: _lectureSeule,
+                    peutValiderTresorier:
+                        _peutValiderTresorier &&
+                            !valTresorier &&
+                            statut == 'en_attente',
+                    peutValiderCommissaire:
+                        _peutValiderCommissaire &&
+                            valTresorier &&
+                            !valCommissaire &&
+                            statut == 'en_attente',
+                    peutApprouver:
+                        _peutApprouverPresident &&
+                        valTresorier &&
+                            valCommissaire &&
+                            statut == 'en_attente',
+                    peutRembourser:
+                        (role == 'tresorier' ||
+                            role == 'president') &&
+                            statut == 'approuve',
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CarteEmpruntValidation extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final String empruntId;
+  final String tontineId;
+  final String role;
+  final bool lectureSeule;
+  final bool peutValiderTresorier;
+  final bool peutValiderCommissaire;
+  final bool peutApprouver;
+  final bool peutRembourser;
+
+  const _CarteEmpruntValidation({
+    required this.data,
+    required this.empruntId,
+    required this.tontineId,
+    required this.role,
+    required this.lectureSeule,
+    required this.peutValiderTresorier,
+    required this.peutValiderCommissaire,
+    required this.peutApprouver,
+    required this.peutRembourser,
   });
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('tontines')
-          .doc(tontineId)
-          .collection('emprunts')
-          .snapshots(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final statut = data['statut'] as String? ?? '';
+    final montant = data['montant'] as int? ?? 0;
+    final demandeurNom =
+        data['demandeurNom'] as String? ?? '';
+    final motif = data['motif'] as String? ?? '';
+    final dureeMois =
+        data['dureeMois'] as int? ?? 1;
+    final valTresorier =
+        data['valideTresorier'] as bool? ?? false;
+    final valCommissaire =
+        data['valideCommissaire'] as bool? ?? false;
+    final montantRembourse =
+        data['montantRembourse'] as int? ?? 0;
 
-        final emprunts = snap.data?.docs ?? [];
+    Color couleur;
+    String label;
+    switch (statut) {
+      case 'en_attente':
+        couleur = AppColors.accent;
+        label = 'En attente';
+        break;
+      case 'approuve':
+        couleur = AppColors.primary;
+        label = 'Approuvé';
+        break;
+      case 'rembourse':
+        couleur = AppColors.success;
+        label = 'Remboursé';
+        break;
+      default:
+        couleur = AppColors.danger;
+        label = 'Refusé';
+    }
 
-        if (emprunts.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.check_circle_outline,
-                  size: 50,
-                  color: AppColors.muted,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border:
+            Border.all(color: couleur.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+
+          // En-tête
+          Row(
+            mainAxisAlignment:
+                MainAxisAlignment.spaceBetween,
+            children: [
+              Text(demandeurNom,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15)),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: couleur.withOpacity(0.1),
+                  borderRadius:
+                      BorderRadius.circular(20),
                 ),
-                SizedBox(height: 12),
-                Text(
-                  'Aucune demande',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                child: Text(label,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: couleur)),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+          Text('$montant FCFA · $dureeMois mois',
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary)),
+
+          if (motif.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(motif,
+              style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.muted)),
+          ],
+               // ── Indicateur de progression 
+          if (statut == 'en_attente') ...[
+            const SizedBox(height: 12),
+            const Text('Progression de validation',
+              style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _etapeValidation(
+                  label: 'Demande',
+                  fait: true,
+                  icone: Icons.assignment_outlined,
+                ),
+                _ligneConnexion(valTresorier),
+                _etapeValidation(
+                  label: 'Trésorier',
+                  fait: valTresorier,
+                  icone: Icons
+                      .account_balance_wallet_outlined,
+                ),
+                _ligneConnexion(valCommissaire),
+                _etapeValidation(
+                  label: 'Commissaire',
+                  fait: valCommissaire,
+                  icone: Icons.fact_check_outlined,
+                ),
+                _ligneConnexion(statut == 'approuve'),
+                _etapeValidation(
+                  label: 'Président',
+                  fait: statut == 'approuve',
+                  icone: Icons.star_outline,
                 ),
               ],
             ),
-          );
-        }
+          ],
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: emprunts.length,
-          itemBuilder: (context, i) {
-            final e = emprunts[i].data() as Map<String, dynamic>;
-            final id = emprunts[i].id;
-            final statut = e['statut'] as String? ?? '';
+          // Barre remboursement
+          if (statut == 'approuve' ||
+              statut == 'rembourse') ...[
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment:
+                  MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Remboursé : $montantRembourse / $montant FCFA',
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.muted)),
+                Text(
+                  '${montant > 0 ? (montantRembourse / montant * 100).toStringAsFixed(0) : 0}%',
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: montant > 0
+                    ? montantRembourse / montant
+                    : 0,
+                backgroundColor: AppColors.border,
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(
+                        couleur),
+                minHeight: 5,
+              ),
+            ),
+          ],
 
-            return _CarteEmprunt(
-              data: e,
-              afficherRemboursement: statut == 'approuve',
-              onRembourser: statut == 'approuve'
-                  ? () => _enregistrerRemboursement(context, id, e)
-                  : null,
-              actionsValidation: statut == 'en_attente'
-                  ? Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => _decider(context, id, 'refuse'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.danger,
-                              side: const BorderSide(color: AppColors.danger),
-                            ),
-                            child: const Text('Refuser'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => _decider(context, id, 'approuve'),
-                            child: const Text('Approuver'),
-                          ),
-                        ),
-                      ],
-                    )
-                  : null,
-            );
-          },
-        );
-      },
+          //  Actions selon le rôle 
+          if (!lectureSeule) ...[
+            const SizedBox(height: 12),
+
+            if (peutValiderTresorier)
+              _boutonAction(
+                context,
+                label: 'Valider (fonds disponibles)',
+                couleur: AppColors.primary,
+                onTap: () => _validerTresorier(context),
+              ),
+
+            if (peutValiderCommissaire)
+              _boutonAction(
+                context,
+                label: 'Valider (conformité)',
+                couleur: AppColors.primary,
+                onTap: () =>
+                    _validerCommissaire(context),
+              ),
+
+            if (peutApprouver)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () =>
+                          _decider(context, 'refuse'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor:
+                            AppColors.danger,
+                        side: const BorderSide(
+                            color: AppColors.danger),
+                      ),
+                      child: const Text('Refuser'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () =>
+                          _decider(context, 'approuve'),
+                      child: const Text('Approuver ✓'),
+                    ),
+                  ),
+                ],
+              ),
+
+            if (peutRembourser)
+              OutlinedButton.icon(
+                onPressed: () =>
+                    _rembourser(context, montant,
+                        montantRembourse),
+                icon: const Icon(Icons.payment,
+                    size: 16),
+                label: const Text(
+                    'Enregistrer un remboursement'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(
+                      color: AppColors.primary),
+                  minimumSize:
+                      const Size(double.infinity, 40),
+                ),
+              ),
+          ],
+
+          if (lectureSeule && statut == 'en_attente')
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color:
+                    AppColors.muted.withOpacity(0.08),
+                borderRadius:
+                    BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.visibility_outlined,
+                      size: 14,
+                      color: AppColors.muted),
+                  SizedBox(width: 6),
+                  Text('Lecture seule',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.muted)),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  Future<void> _decider(
-    BuildContext context,
-    String empruntId,
-    String decision,
-  ) async {
-    final confirm = await showDialog<bool>(
+  // ignore: unused_element
+  Widget _etapeValidation({
+    required String label,
+    required bool fait,
+    required IconData icone,
+  }) {
+    return Column(
+      children: [
+        Container(
+          width: 28, height: 28,
+          decoration: BoxDecoration(
+            color: fait
+                ? AppColors.success
+                : AppColors.border,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            fait ? Icons.check : icone,
+            color: fait
+                ? Colors.white
+                : AppColors.muted,
+            size: 14,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(label,
+          style: TextStyle(
+            fontSize: 9,
+            color: fait
+                ? AppColors.success
+                : AppColors.muted,
+            fontWeight: fait
+                ? FontWeight.w700
+                : FontWeight.w400,
+          )),
+      ],
+    );
+  }
+
+  // ignore: unused_element
+  Widget _ligneConnexion(bool active) {
+    return Expanded(
+      child: Container(
+        height: 2,
+        margin: const EdgeInsets.only(bottom: 14),
+        color: active
+            ? AppColors.success
+            : AppColors.border,
+      ),
+    );
+  }
+
+  // ignore: unused_element
+  Widget _boutonAction(
+    BuildContext context, {
+    required String label,
+    required Color couleur,
+    required VoidCallback onTap,
+  }) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: couleur,
+        minimumSize: const Size(double.infinity, 42),
+      ),
+      child: Text(label,
+        style: const TextStyle(
+            fontWeight: FontWeight.w700)),
+    );
+  }
+
+  // ignore: unused_element
+  Future<void> _validerTresorier(
+      BuildContext context) async {
+      final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Confirmer'),
-        content: Text(
-          'Voulez-vous ${decision == 'approuve' ? 'approuver' : 'refuser'} cette demande ?',
-        ),
+        title: const Text('Validation Trésorier'),
+        content: const Text(
+            'Confirmez-vous que les fonds sont '
+            'disponibles pour cet emprunt ?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () =>
+                Navigator.pop(context, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmer'),
+            onPressed: () =>
+                Navigator.pop(context, true),
+            child: const Text('Valider'),
           ),
         ],
       ),
     );
-
     if (confirm != true) return;
 
     await FirebaseFirestore.instance
@@ -637,80 +1031,77 @@ class _ValidationEmprunts extends StatelessWidget {
         .collection('emprunts')
         .doc(empruntId)
         .update({
-          'statut': decision,
-          'dateDecision': FieldValue.serverTimestamp(),
-          'decidePar': FirebaseAuth.instance.currentUser?.uid ?? '',
-        });
+      'valideTresorier': true,
+      'dateTresorier': FieldValue.serverTimestamp(),
+    });
+  }
 
-    // Récupère l'UID du demandeur
-    final empruntDoc = await FirebaseFirestore.instance
+  // ignore: unused_element
+  Future<void> _validerCommissaire(
+      BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Validation Commissaire'),
+        content: const Text(
+            'Confirmez-vous la conformité de '
+            'cette demande d\'emprunt ?'),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.pop(context, true),
+            child: const Text('Valider'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    await FirebaseFirestore.instance
         .collection('tontines')
         .doc(tontineId)
         .collection('emprunts')
         .doc(empruntId)
-        .get();
-
-    final demandeurUid = empruntDoc['demandeurUid'] as String? ?? '';
-    final montant = empruntDoc['montant'] as int? ?? 0;
-
-    if (demandeurUid.isNotEmpty) {
-      await NotificationService.envoyer(
-        membreUid: demandeurUid,
-        titre: decision == 'approuve'
-            ? 'Emprunt approuvé ✅'
-            : 'Emprunt refusé ❌',
-        message: decision == 'approuve'
-            ? 'Votre demande de $montant FCFA a été approuvée.'
-            : 'Votre demande de $montant FCFA a été refusée.',
-        type: 'emprunt',
-        tontineId: tontineId,
-        tontineNom: tontineData['nom'] as String? ?? '',
-      );
-    }
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            decision == 'approuve' ? 'Emprunt approuvé !' : 'Demande refusée',
-          ),
-          backgroundColor: decision == 'approuve'
-              ? AppColors.success
-              : AppColors.danger,
-        ),
-      );
-    }
+        .update({
+      'valideCommissaire': true,
+      'dateCommissaire': FieldValue.serverTimestamp(),
+    });
   }
 
-  Future<void> _enregistrerRemboursement(
+
+  // ignore: unused_element
+  Future<void> _rembourser(
     BuildContext context,
-    String empruntId,
-    Map<String, dynamic> data,
+    int montantTotal,
+    int dejaRembourse,
   ) async {
-    final montantController = TextEditingController();
-    final montantTotal = data['montant'] as int? ?? 0;
-    final deja = data['montantRembourse'] as int? ?? 0;
-    final reste = montantTotal - deja;
+    final ctrl = TextEditingController();
+    final reste = montantTotal - dejaRembourse;
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Enregistrer un remboursement'),
+        title:
+            const Text('Enregistrer un remboursement'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Capital : $montantTotal FCFA\n'
-              'Déjà remboursé : $deja FCFA\n'
-              'Reste : $reste FCFA',
-              style: const TextStyle(color: AppColors.muted, fontSize: 13),
-            ),
+              'Reste à rembourser : $reste FCFA',
+              style: const TextStyle(
+                  color: AppColors.muted)),
             const SizedBox(height: 14),
             TextFormField(
-              controller: montantController,
+              controller: ctrl,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly
+              ],
               decoration: const InputDecoration(
                 labelText: 'Montant versé',
                 suffixText: 'FCFA',
@@ -720,11 +1111,13 @@ class _ValidationEmprunts extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () =>
+                Navigator.pop(context, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () =>
+                Navigator.pop(context, true),
             child: const Text('Enregistrer'),
           ),
         ],
@@ -733,35 +1126,27 @@ class _ValidationEmprunts extends StatelessWidget {
 
     if (confirm != true) return;
 
-    final versement = int.tryParse(montantController.text) ?? 0;
-    final nouveauTotal = deja + versement;
-    final nouveauStatut = nouveauTotal >= montantTotal
-        ? 'rembourse'
-        : 'approuve';
+    final versement = int.tryParse(ctrl.text) ?? 0;
+    final nouveauTotal = dejaRembourse + versement;
+    final nouveauStatut =
+        nouveauTotal >= montantTotal
+            ? 'rembourse'
+            : 'approuve';
+
     await FirebaseFirestore.instance
         .collection('tontines')
         .doc(tontineId)
         .collection('emprunts')
         .doc(empruntId)
         .update({
-          'montantRembourse': nouveauTotal,
-          'statut': nouveauStatut,
-          'dernierRemboursement': FieldValue.serverTimestamp(),
-        });
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            nouveauStatut == 'rembourse'
-                ? 'Emprunt entièrement remboursé !'
-                : 'Remboursement enregistré ($nouveauTotal / $montantTotal FCFA)',
-          ),
-          backgroundColor: AppColors.success,
-        ),
-      );
-    }
+      'montantRembourse': nouveauTotal,
+      'statut': nouveauStatut,
+      'dernierRemboursement':
+          FieldValue.serverTimestamp(),
+    });
   }
+  
+  void _decider(BuildContext context, String s) {}
 }
 
 // Carte emprunt réutilisable

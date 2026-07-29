@@ -26,12 +26,16 @@ class _FormalTontineScreenState
       TextEditingController(text: '2000');
   final _penaliteController =
       TextEditingController(text: '0');
+ 
+final _epargneMinController =
+    TextEditingController(text: '1000');
 
   int _dureeMois = 10;
   bool _solidariteActive = true;
   bool _collationActive = true;
   bool _penaliteActive = false;
   bool _isLoading = false;
+   bool _epargneActive = false;
 
   // Délai limite
   String _jourLimite = 'mercredi';
@@ -59,6 +63,7 @@ class _FormalTontineScreenState
     _solidariteController.dispose();
     _collationController.dispose();
     _penaliteController.dispose();
+    _epargneMinController.dispose();
     super.dispose();
   }
 
@@ -178,6 +183,11 @@ class _FormalTontineScreenState
             '${_heureLimite.hour.toString().padLeft(2, '0')}:'
             '${_heureLimite.minute.toString().padLeft(2, '0')}',
         'delaiGraceHeures': _delaiGraceHeures,
+        //epargne libre
+          'epargneActive': _epargneActive,
+          'epargneMin': _epargneActive
+              ? int.tryParse(_epargneMinController.text) ?? 1000
+              : 0,
       });
 
       // Crée l'adhésion du créateur
@@ -225,6 +235,7 @@ class _FormalTontineScreenState
     } finally {
       setState(() => _isLoading = false);
     }
+  
   }
 
   @override
@@ -541,6 +552,25 @@ class _FormalTontineScreenState
                         )
                       : const SizedBox.shrink(),
                 ),
+
+                // Section dans le formulaire
+                  _SectionOptionelle(
+                    titre: 'Épargne libre',
+                    sousTitre:
+                        'Chaque membre épargne librement '
+                        '(multiples de 1 000 FCFA). '
+                        'Récupérable en fin de cycle avec intérêts.',
+                    active: _epargneActive,
+                    onToggle: (v) =>
+                        setState(() => _epargneActive = v),
+                    child: _epargneActive
+                        ? _champMontant(
+                            controller: _epargneMinController,
+                            label: 'Montant minimum (FCFA)',
+                            hint: 'Ex : 1000',
+                          )
+                        : const SizedBox.shrink(),
+                  ),
 
                 const SizedBox(height: 20),
                        //  Récapitulatif 

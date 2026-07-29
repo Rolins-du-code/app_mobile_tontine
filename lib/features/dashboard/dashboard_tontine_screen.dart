@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import 'tabs/accueil_tab.dart';
 import 'tabs/cotisations_tab.dart';
 import 'tabs/emprunts_tab.dart';
+import 'tabs/epargne_tab.dart';
 import 'tabs/membres_tab.dart';
 import '../../core/export_service.dart';
 import 'tabs/solidarite_tab.dart';
@@ -59,6 +60,7 @@ class _DashboardTontineScreenState extends State<DashboardTontineScreen> {
         // Liste des onglets
         final solidariteActive = t['solidariteActive'] as bool? ?? false;
         final collationActive = t['collationActive'] as bool? ?? false;
+        final epargneActive = t['epargneActive'] as bool? ?? false;
         final onglets = [
           AccueilTab(
             tontineId: widget.tontineId,
@@ -67,6 +69,12 @@ class _DashboardTontineScreenState extends State<DashboardTontineScreen> {
             estBureau: _estBureau,
           ),
           CotisationsTab(
+            tontineId: widget.tontineId,
+            role: widget.role,
+            tontineData: t,
+            estBureau: _estBureau,
+          ),
+          if (epargneActive) EpargneTab(
             tontineId: widget.tontineId,
             role: widget.role,
             tontineData: t,
@@ -94,6 +102,7 @@ class _DashboardTontineScreenState extends State<DashboardTontineScreen> {
             tontineData: t,
             estBureau: _estBureau,
           ),
+        
         ];
 
         return Scaffold(
@@ -267,6 +276,11 @@ class _DashboardTontineScreenState extends State<DashboardTontineScreen> {
                 icon: Icon(Icons.handshake_outlined),
                 activeIcon: Icon(Icons.handshake),
                 label: 'Emprunts',
+              ),
+              if (epargneActive) const BottomNavigationBarItem(
+                icon: Icon(Icons.savings_outlined),
+                activeIcon: Icon(Icons.savings),
+                label: 'Épargne',
               ),
               const BottomNavigationBarItem(
                 icon: Icon(Icons.people_outline),
