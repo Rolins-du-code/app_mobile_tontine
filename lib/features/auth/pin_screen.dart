@@ -73,28 +73,43 @@ class _PinScreenState extends State<PinScreen> {
   }
 
   Future<void> _terminerInscription() async {
-    final pinHache = sha256.convert(utf8.encode(_pin)).toString();
+    final pinHache = 'pin_${sha256.convert(utf8.encode(_pin)).toString()}';
 
     try {
-      // Crée un vrai compte Firebase avec email fictif + pin hache
-      final telephone = widget.telephone.replaceAll(' ', ' ');
-      final emailFictif = '$telephone@monamical.app';
+      final telephone = widget.telephone.replaceAll(' ', '');
+      final emailFictif = '$telephone@monamicale.app';
 
-      final UserCredential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(
-            email: emailFictif,
-            password: pinHache,
-          );
+      // Vérifie si le compte existe déjà
+      UserCredential userCredential;
+      try {
+        userCredential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(
+              email: emailFictif,
+              password: pinHache,
+            );
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'email-already-in-use') {
+          // Compte déjà créé — tente une connexion
+          userCredential = await FirebaseAuth.instance
+              .signInWithEmailAndPassword(
+                email: emailFictif,
+                password: pinHache,
+              );
+        } else {
+          throw e;
+        }
+      }
 
-      final uid = UserCredential.user!.uid;
+      final uid = userCredential.user!.uid;
 
-      //Sauvegarde le profil dans FireStore
-      await FirebaseFirestore.instance.collection('president').doc(uid).set({
+      // Sauvegarde dans Firestore
+      await FirebaseFirestore.instance.collection('membres').doc(uid).set({
         'nom': widget.nom,
         'telephone': telephone,
-        'role': 'membre',
-        'telephoneVérifié': false,
+        'role': 'president',
+        'telephoneVerifie': false,
         'statutValidation': 'en_attente',
+        'tontines': [],
         'dateInscription': FieldValue.serverTimestamp(),
       });
 
@@ -107,31 +122,57 @@ class _PinScreenState extends State<PinScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text('Compte créé !'),
+          title: const Text('Compte créé ! ✅'),
           content: const Text(
             'Votre compte a été créé avec succès. '
-            'Vous pourrez rejoindre une tontine dès '
-            'que votre numéro sera validé par le bureau. ',
+            'Vous pouvez maintenant vous connecter.',
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.popUntil(context, (route) => route.isFirst);
-              },
-              child: const Text('Continuer'),
+              onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/login',
+                (route) => false,
+              ),
+              child: const Text('Se connecter'),
             ),
           ],
         ),
       );
     } on FirebaseAuthException catch (e) {
-      String message = 'Erreur lors de la création du compte';
-      if (e.code == 'email-already-in-use') {
-        message = 'Ce numéro est déjà associé à un compte ';
+      String message;
+      switch (e.code) {
+        case 'weak-password':
+          message = 'PIN trop simple, réessayez';
+          break;
+        case 'invalid-email':
+          message = 'Numéro de téléphone invalide';
+          break;
+        case 'network-request-failed':
+          message = 'Pas de connexion internet';
+          break;
+        default:
+          message = 'Erreur : ${e.code} — ${e.message}';
       }
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur inattendue : $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
     }
   }
   // void _terminerInscription() {

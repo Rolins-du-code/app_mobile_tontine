@@ -71,12 +71,21 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     // Hache de PIN entre pour le compare a celui stocké
-    final pinHache = sha256.convert(utf8.encode(_pin)).toString();
+    final pinHache = 'pin_${sha256.convert(utf8.encode(_pin)).toString()}';
     final telephone = _telController.text.trim().replaceAll(' ', ' ');
-    final emailFictif = '$telephone@monamical.app';
+    final emailFictif = '$telephone@monamicale.app';
 
     try {
       //connexion avec email fictif + PIN haché
+      
+      // final emailFictif = '$telephone@monamical.app';
+
+      // log temporaire A retire apres le fix
+      // print('===== Debuhg connexion =====');
+      // print('Email: $emailFictif');
+      // print('PIN saisi: $_pin');
+      // print('PIN HACHE: $pinHache');
+      // print('================');
       final userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: emailFictif, password: pinHache);
       final uid = userCredential.user!.uid;
@@ -112,12 +121,27 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacementNamed(context, '/hub');
       }
     } on FirebaseAuthException catch (e) {
-      String message = 'Erreur de connexion';
-      if (e.code == 'user-not-found') {
-        message = 'Aucun compte trouvé pour ce numéro';
+      String message;
+      switch (e.code) {
+        case 'user-not-found':
+        case 'invalid-credential':
+          message = 'Numéro ou PIN incorrect';
+          break;
+        case 'wrong-password':
+          message = 'Code PIN incorrect';
+          break;
+        case 'user-disabled':
+          message = 'Compte désactivé';
+          break;
+        case 'network-request-failed':
+          message = 'Pas de connexion internet';
+          break;
+        default:
+          // Affiche le code exact pour déboguer
+          message = 'Erreur Firebase : ${e.code}';
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 6)),
       );
       setState(() => _pin = '');
     }
@@ -134,8 +158,8 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 40),
 
               // Logo
-
               const AppLogo(size: 80),
+
               // Container(
               //   width: 64,
               //   height: 64,
@@ -154,7 +178,6 @@ class _LoginScreenState extends State<LoginScreen> {
               //     ),
               //   ),
               // ),
-
               const SizedBox(height: 16),
               const Text(
                 'MonAmicale',
