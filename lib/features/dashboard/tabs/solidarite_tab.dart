@@ -1,5 +1,4 @@
-// solidarite visible par le bureau et les membres de l'association selon certain critaire 
-
+// solidarite visible par le bureau et les membres de l'association selon certain critaire
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,24 +20,24 @@ class SolidariteTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final solidariteActive =
-        tontineData['solidariteActive'] as bool? ?? false;
+    final solidariteActive = tontineData['solidariteActive'] as bool? ?? false;
 
     if (!solidariteActive) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.favorite_border,
-                size: 60, color: AppColors.muted),
+            Icon(Icons.favorite_border, size: 60, color: AppColors.muted),
             SizedBox(height: 16),
-            Text('Solidarité désactivée',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700)),
+            Text(
+              'Solidarité désactivée',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
             SizedBox(height: 8),
-            Text('Activez-la dans les paramètres.',
-                style: TextStyle(color: AppColors.muted)),
+            Text(
+              'Activez-la dans les paramètres.',
+              style: TextStyle(color: AppColors.muted),
+            ),
           ],
         ),
       );
@@ -53,8 +52,7 @@ class SolidariteTab extends StatelessWidget {
           .snapshots(),
       builder: (context, snapPeriodes) {
         if (!snapPeriodes.hasData) {
-          return const Center(
-              child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator());
         }
 
         final periodes = snapPeriodes.data!.docs;
@@ -63,8 +61,7 @@ class SolidariteTab extends StatelessWidget {
           length: 2,
           child: Column(
             children: [
-
-              //  Onglets internes 
+              //  Onglets internes
               Container(
                 color: AppColors.card,
                 child: const TabBar(
@@ -81,8 +78,7 @@ class SolidariteTab extends StatelessWidget {
               Expanded(
                 child: TabBarView(
                   children: [
-
-                    //  Tab Cotisations solidarité 
+                    //  Tab Cotisations solidarité
                     _CotisationsSolidarite(
                       tontineId: tontineId,
                       tontineData: tontineData,
@@ -90,7 +86,7 @@ class SolidariteTab extends StatelessWidget {
                       periodes: periodes,
                     ),
 
-                    //  Tab Décaissements 
+                    //  Tab Décaissements
                     _Decaissements(
                       tontineId: tontineId,
                       estBureau: estBureau,
@@ -107,7 +103,7 @@ class SolidariteTab extends StatelessWidget {
   }
 }
 
-//  Cotisations solidarité 
+//  Cotisations solidarité
 class _CotisationsSolidarite extends StatelessWidget {
   final String tontineId;
   final Map<String, dynamic> tontineData;
@@ -123,19 +119,16 @@ class _CotisationsSolidarite extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final montant =
-        tontineData['montantSolidarite'] as int? ?? 0;
+    final montant = tontineData['montantSolidarite'] as int? ?? 0;
 
     return Column(
       children: [
         // En-tête + bouton nouvelle période
         Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           color: AppColors.background,
           child: Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 '${periodes.length} période(s)',
@@ -146,15 +139,15 @@ class _CotisationsSolidarite extends StatelessWidget {
               ),
               if (estBureau)
                 ElevatedButton.icon(
-                  onPressed: () =>
-                      _nouvellePeriode(context),
+                  onPressed: () => _nouvellePeriode(context),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Nouvelle période'),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    textStyle:
-                        const TextStyle(fontSize: 12),
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    textStyle: const TextStyle(fontSize: 12),
                     minimumSize: Size.zero,
                   ),
                 ),
@@ -167,26 +160,28 @@ class _CotisationsSolidarite extends StatelessWidget {
           child: periodes.isEmpty
               ? Center(
                   child: Column(
-                    mainAxisAlignment:
-                        MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.history,
-                          size: 50,
-                          color: AppColors.muted),
+                      const Icon(
+                        Icons.history,
+                        size: 50,
+                        color: AppColors.muted,
+                      ),
                       const SizedBox(height: 12),
-                      const Text('Aucune période',
+                      const Text(
+                        'Aucune période',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                        )),
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       if (estBureau)
                         const Text(
                           'Démarrez une nouvelle période\n'
                           'de collecte.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: AppColors.muted),
+                          style: TextStyle(color: AppColors.muted),
                         ),
                     ],
                   ),
@@ -195,14 +190,10 @@ class _CotisationsSolidarite extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   itemCount: periodes.length,
                   itemBuilder: (context, i) {
-                    final p = periodes[i].data()
-                        as Map<String, dynamic>;
+                    final p = periodes[i].data() as Map<String, dynamic>;
                     final periodeId = periodes[i].id;
-                    final label = p['label']
-                            as String? ??
-                        'Période ${i + 1}';
-                    final active =
-                        p['active'] as bool? ?? false;
+                    final label = p['label'] as String? ?? 'Période ${i + 1}';
+                    final active = p['active'] as bool? ?? false;
 
                     return GestureDetector(
                       onTap: () => _ouvrirPeriode(
@@ -213,17 +204,14 @@ class _CotisationsSolidarite extends StatelessWidget {
                         active,
                       ),
                       child: Container(
-                        margin: const EdgeInsets.only(
-                            bottom: 10),
+                        margin: const EdgeInsets.only(bottom: 10),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: AppColors.card,
-                          borderRadius:
-                              BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: active
-                                ? AppColors.primary
-                                    .withOpacity(0.4)
+                                ? AppColors.primary.withOpacity(0.4)
                                 : AppColors.border,
                             width: active ? 1.5 : 1,
                           ),
@@ -231,16 +219,13 @@ class _CotisationsSolidarite extends StatelessWidget {
                         child: Row(
                           children: [
                             Container(
-                              width: 44, height: 44,
+                              width: 44,
+                              height: 44,
                               decoration: BoxDecoration(
                                 color: active
-                                    ? AppColors.primary
-                                        .withOpacity(0.1)
-                                    : AppColors.muted
-                                        .withOpacity(0.1),
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        12),
+                                    ? AppColors.primary.withOpacity(0.1)
+                                    : AppColors.muted.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
                                 active
@@ -255,15 +240,15 @@ class _CotisationsSolidarite extends StatelessWidget {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(label,
+                                  Text(
+                                    label,
                                     style: const TextStyle(
-                                      fontWeight:
-                                          FontWeight.w700,
+                                      fontWeight: FontWeight.w700,
                                       fontSize: 14,
-                                    )),
+                                    ),
+                                  ),
                                   Text(
                                     '$montant FCFA / membre',
                                     style: const TextStyle(
@@ -275,23 +260,18 @@ class _CotisationsSolidarite extends StatelessWidget {
                               ),
                             ),
                             Container(
-                              padding:
-                                  const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: active
                                     ? AppColors.successBg
-                                    : AppColors.muted
-                                        .withOpacity(0.1),
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        20),
+                                    : AppColors.muted.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
-                                active
-                                    ? 'En cours'
-                                    : 'Fermée',
+                                active ? 'En cours' : 'Fermée',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -312,11 +292,9 @@ class _CotisationsSolidarite extends StatelessWidget {
     );
   }
 
-  Future<void> _nouvellePeriode(
-      BuildContext context) async {
+  Future<void> _nouvellePeriode(BuildContext context) async {
     final labelController = TextEditingController(
-      text:
-          'Période ${periodes.length + 1}',
+      text: 'Période ${periodes.length + 1}',
     );
 
     final confirm = await showDialog<bool>(
@@ -342,13 +320,11 @@ class _CotisationsSolidarite extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Créer'),
           ),
         ],
@@ -376,10 +352,10 @@ class _CotisationsSolidarite extends StatelessWidget {
         .doc(tontineId)
         .collection('periodes_solidarite')
         .add({
-      'label': labelController.text.trim(),
-      'active': true,
-      'dateCreation': FieldValue.serverTimestamp(),
-    });
+          'label': labelController.text.trim(),
+          'active': true,
+          'dateCreation': FieldValue.serverTimestamp(),
+        });
   }
 
   void _ouvrirPeriode(
@@ -405,7 +381,7 @@ class _CotisationsSolidarite extends StatelessWidget {
   }
 }
 
-//  Détail d'une période 
+//  Détail d'une période
 class _DetailPeriodePage extends StatelessWidget {
   final String tontineId;
   final String periodeId;
@@ -427,9 +403,7 @@ class _DetailPeriodePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(label,
-            style: const TextStyle(
-                fontWeight: FontWeight.w700)),
+        title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
@@ -446,8 +420,7 @@ class _DetailPeriodePage extends StatelessWidget {
             .snapshots(),
         builder: (context, snapMembres) {
           if (!snapMembres.hasData) {
-            return const Center(
-                child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           }
 
           final membres = snapMembres.data!.docs;
@@ -461,13 +434,13 @@ class _DetailPeriodePage extends StatelessWidget {
                 .collection('paiements')
                 .snapshots(),
             builder: (context, snapPaiements) {
-              final paiements =
-                  snapPaiements.data?.docs ?? [];
+              final paiements = snapPaiements.data?.docs ?? [];
               final uidsPaies = paiements
-                  .map((p) =>
-                      (p.data()
-                          as Map<String, dynamic>)[
-                      'membreUid'] as String)
+                  .map(
+                    (p) =>
+                        (p.data() as Map<String, dynamic>)['membreUid']
+                            as String,
+                  )
                   .toSet();
 
               final nbPaies = uidsPaies.length;
@@ -475,29 +448,23 @@ class _DetailPeriodePage extends StatelessWidget {
 
               return Column(
                 children: [
-
                   // Résumé (montant caisse = bureau only)
                   if (estBureau)
                     Container(
                       margin: const EdgeInsets.all(16),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: AppColors.primary
-                            .withOpacity(0.06),
-                        borderRadius:
-                            BorderRadius.circular(14),
+                        color: AppColors.primary.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: AppColors.primary
-                              .withOpacity(0.2),
+                          color: AppColors.primary.withOpacity(0.2),
                         ),
                       ),
                       child: Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
                                 'Total en caisse',
@@ -510,23 +477,20 @@ class _DetailPeriodePage extends StatelessWidget {
                                 '$totalCaisse FCFA',
                                 style: const TextStyle(
                                   fontSize: 22,
-                                  fontWeight:
-                                      FontWeight.w800,
+                                  fontWeight: FontWeight.w800,
                                   color: AppColors.primary,
                                 ),
                               ),
                             ],
                           ),
                           Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.end,
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
                                 '$nbPaies / ${membres.length}',
                                 style: const TextStyle(
                                   fontSize: 18,
-                                  fontWeight:
-                                      FontWeight.w800,
+                                  fontWeight: FontWeight.w800,
                                   color: AppColors.success,
                                 ),
                               ),
@@ -546,33 +510,26 @@ class _DetailPeriodePage extends StatelessWidget {
                   // Liste membres
                   Expanded(
                     child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemCount: membres.length,
                       itemBuilder: (context, i) {
-                        final m = membres[i].data() as Map<String, dynamic>;  
+                        final m = membres[i].data() as Map<String, dynamic>;
 
-                        final uid =
-                            m['membreUid'] as String? ??
-                                '';
-                        final paye =
-                            uidsPaies.contains(uid);
+                        final uid = m['membreUid'] as String? ?? '';
+                        final paye = uidsPaies.contains(uid);
 
                         return Container(
-                          margin: const EdgeInsets.only(
-                              bottom: 8),
-                          padding:
-                              const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.card,
-                            borderRadius:
-                                BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: paye
-                                  ? AppColors.success
-                                      .withOpacity(0.3)
+                                  ? AppColors.success.withOpacity(0.3)
                                   : AppColors.border,
                             ),
                           ),
@@ -580,105 +537,80 @@ class _DetailPeriodePage extends StatelessWidget {
                             children: [
                               CircleAvatar(
                                 backgroundColor: paye
-                                    ? AppColors.success
-                                        .withOpacity(0.12)
-                                    : AppColors.muted
-                                        .withOpacity(0.1),
+                                    ? AppColors.success.withOpacity(0.12)
+                                    : AppColors.muted.withOpacity(0.1),
                                 child: Text(
-                                  (m['membreNom']
-                                              as String? ??
-                                          '?')[0]
+                                  (m['membreNom'] as String? ?? '?')[0]
                                       .toUpperCase(),
                                   style: TextStyle(
                                     color: paye
                                         ? AppColors.success
                                         : AppColors.muted,
-                                    fontWeight:
-                                        FontWeight.w700,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  m['membreNom']
-                                          as String? ??
-                                      '',
+                                  m['membreNom'] as String? ?? '',
                                   style: const TextStyle(
-                                    fontWeight:
-                                        FontWeight.w600,
+                                    fontWeight: FontWeight.w600,
                                     fontSize: 13.5,
                                   ),
                                 ),
                               ),
                               if (paye)
                                 const Icon(
-                                    Icons.check_circle,
-                                    color:
-                                        AppColors.success,
-                                    size: 20)
-                              else if (estBureau &&
-                                  active)
+                                  Icons.check_circle,
+                                  color: AppColors.success,
+                                  size: 20,
+                                )
+                              else if (estBureau && active)
                                 GestureDetector(
-                                  onTap: () =>
-                                      _marquerPaye(
+                                  onTap: () => _marquerPaye(
                                     context,
                                     uid,
-                                    m['membreNom']
-                                            as String? ??
-                                        '',
+                                    m['membreNom'] as String? ?? '',
                                     montant,
+                                    label,
+
                                   ),
                                   child: Container(
-                                    padding:
-                                        const EdgeInsets
-                                            .symmetric(
-                                            horizontal: 10,
-                                            vertical: 5),
-                                    decoration:
-                                        BoxDecoration(
-                                      color: AppColors
-                                          .primary,
-                                      borderRadius:
-                                          BorderRadius
-                                              .circular(
-                                                  20),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: const Text(
                                       'Marquer payé',
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color:
-                                            Colors.white,
-                                        fontWeight:
-                                            FontWeight.w700,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ),
                                 )
                               else
                                 Container(
-                                  padding:
-                                      const EdgeInsets
-                                          .symmetric(
-                                          horizontal: 10,
-                                          vertical: 4),
-                                  decoration:
-                                      BoxDecoration(
-                                    color: AppColors
-                                        .dangerBg,
-                                    borderRadius:
-                                        BorderRadius
-                                            .circular(20),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.dangerBg,
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: const Text(
                                     'En attente',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      fontWeight:
-                                          FontWeight.w700,
-                                      color:
-                                          AppColors.danger,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.danger,
                                     ),
                                   ),
                                 ),
@@ -702,22 +634,20 @@ class _DetailPeriodePage extends StatelessWidget {
     String membreUid,
     String membreNom,
     int montant,
+    dynamic mois,
   ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Confirmer'),
-        content: Text(
-            'Marquer $membreNom comme ayant payé $montant FCFA ?'),
+        content: Text('Marquer $membreNom comme ayant payé $montant FCFA ?'),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Confirmer'),
           ),
         ],
@@ -733,12 +663,12 @@ class _DetailPeriodePage extends StatelessWidget {
         .doc(periodeId)
         .collection('paiements')
         .add({
-      'membreUid': membreUid,
-      'membreNom': membreNom,
-      'montant': montant,
-      'datePaiement': FieldValue.serverTimestamp(),
-    });
-      if (context.mounted) {
+          'membreUid': membreUid,
+          'membreNom': membreNom,
+          'montant': montant,
+          'datePaiement': FieldValue.serverTimestamp(),
+        });
+    if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$membreNom marqué payé !'),
@@ -746,10 +676,37 @@ class _DetailPeriodePage extends StatelessWidget {
         ),
       );
     }
+
+    // Récupère le nom du validateur (bureau connecté)
+    final validateurDoc = await FirebaseFirestore.instance
+        .collection('membres')
+        .doc(FirebaseAuth.instance.currentUser!.uid)
+        .get();
+    final validateurNom = validateurDoc['nom'] as String? ?? '';
+    final validateurRole = validateurDoc['role'] as String? ?? '';
+
+   
+    await FirebaseFirestore.instance
+        .collection('tontines')
+        .doc(tontineId)
+        .collection('cotisations')
+        .add({
+          'membreUid': membreUid,
+          'membreNom': membreNom,
+          'mois': mois,
+          'montant': montant,
+          'statut': 'paye',
+          'datePaiement': FieldValue.serverTimestamp(),
+          // ← Ajouts traçabilité
+          'validePar': FirebaseAuth.instance.currentUser!.uid,
+          'valideParNom': validateurNom,
+          'valideParRole': validateurRole,
+          'dateValidation': FieldValue.serverTimestamp(),
+        });
   }
 }
 
-//  Décaissements 
+//  Décaissements
 class _Decaissements extends StatelessWidget {
   final String tontineId;
   final bool estBureau;
@@ -765,21 +722,16 @@ class _Decaissements extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-
         // Bouton enregistrer (bureau)
         if (estBureau)
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-                16, 12, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: ElevatedButton.icon(
-              onPressed: () =>
-                  _enregistrerDecaissement(context),
+              onPressed: () => _enregistrerDecaissement(context),
               icon: const Icon(Icons.add),
-              label: const Text(
-                  'Enregistrer un décaissement'),
+              label: const Text('Enregistrer un décaissement'),
               style: ElevatedButton.styleFrom(
-                minimumSize:
-                    const Size(double.infinity, 46),
+                minimumSize: const Size(double.infinity, 46),
               ),
             ),
           ),
@@ -797,8 +749,7 @@ class _Decaissements extends StatelessWidget {
                 .snapshots(),
             builder: (context, snap) {
               if (!snap.hasData) {
-                return const Center(
-                    child: CircularProgressIndicator());
+                return const Center(child: CircularProgressIndicator());
               }
 
               final docs = snap.data!.docs;
@@ -806,23 +757,25 @@ class _Decaissements extends StatelessWidget {
               if (docs.isEmpty) {
                 return const Center(
                   child: Column(
-                    mainAxisAlignment:
-                        MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.volunteer_activism,
-                          size: 50,
-                          color: AppColors.muted),
+                      Icon(
+                        Icons.volunteer_activism,
+                        size: 50,
+                        color: AppColors.muted,
+                      ),
                       SizedBox(height: 12),
-                      Text('Aucun décaissement',
+                      Text(
+                        'Aucun décaissement',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                        )),
+                        ),
+                      ),
                       SizedBox(height: 6),
                       Text(
                         'L\'historique apparaîtra ici.',
-                        style: TextStyle(
-                            color: AppColors.muted),
+                        style: TextStyle(color: AppColors.muted),
                       ),
                     ],
                   ),
@@ -833,46 +786,33 @@ class _Decaissements extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 itemCount: docs.length,
                 itemBuilder: (context, i) {
-                  final d = docs[i].data()
-                      as Map<String, dynamic>;
-                  final beneficiaire =
-                      d['beneficiaire'] as String? ??
-                          '';
-                  final montant =
-                      d['montant'] as int? ?? 0;
-                  final motif =
-                      d['motif'] as String? ?? '';
+                  final d = docs[i].data() as Map<String, dynamic>;
+                  final beneficiaire = d['beneficiaire'] as String? ?? '';
+                  final montant = d['montant'] as int? ?? 0;
+                  final motif = d['motif'] as String? ?? '';
                   final date = d['date'] != null
-                      ? (d['date']
-                              as Timestamp)
-                          .toDate()
+                      ? (d['date'] as Timestamp).toDate()
                       : DateTime.now();
 
                   return Container(
-                    margin: const EdgeInsets.only(
-                        bottom: 10),
+                    margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: AppColors.card,
-                      borderRadius:
-                          BorderRadius.circular(14),
-                      border: Border.all(
-                          color: AppColors.border),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          width: 44, height: 44,
+                          width: 44,
+                          height: 44,
                           decoration: BoxDecoration(
-                            color: AppColors.primary
-                                .withOpacity(0.1),
-                            borderRadius:
-                                BorderRadius.circular(
-                                    12),
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
-                            Icons
-                                .volunteer_activism_outlined,
+                            Icons.volunteer_activism_outlined,
                             color: AppColors.primary,
                             size: 22,
                           ),
@@ -880,14 +820,12 @@ class _Decaissements extends StatelessWidget {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 beneficiaire,
                                 style: const TextStyle(
-                                  fontWeight:
-                                      FontWeight.w700,
+                                  fontWeight: FontWeight.w700,
                                   fontSize: 14,
                                 ),
                               ),
@@ -928,10 +866,8 @@ class _Decaissements extends StatelessWidget {
     );
   }
 
-  Future<void> _enregistrerDecaissement(
-      BuildContext context) async {
-    final beneficiaireController =
-        TextEditingController();
+  Future<void> _enregistrerDecaissement(BuildContext context) async {
+    final beneficiaireController = TextEditingController();
     final montantController = TextEditingController();
     final motifController = TextEditingController();
 
@@ -954,9 +890,7 @@ class _Decaissements extends StatelessWidget {
               TextFormField(
                 controller: montantController,
                 keyboardType: TextInputType.number,
-                  inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly
-                ],
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(
                   labelText: 'Montant (FCFA)',
                   suffixText: 'FCFA',
@@ -967,8 +901,7 @@ class _Decaissements extends StatelessWidget {
                 controller: motifController,
                 decoration: const InputDecoration(
                   labelText: 'Motif',
-                  hintText:
-                      'Ex : Naissance, Hospitalisation…',
+                  hintText: 'Ex : Naissance, Hospitalisation…',
                 ),
               ),
             ],
@@ -976,13 +909,11 @@ class _Decaissements extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Enregistrer'),
           ),
         ],
@@ -995,10 +926,7 @@ class _Decaissements extends StatelessWidget {
         montantController.text.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Veuillez remplir tous les champs'),
-          ),
+          const SnackBar(content: Text('Veuillez remplir tous les champs')),
         );
       }
       return;
@@ -1009,15 +937,12 @@ class _Decaissements extends StatelessWidget {
         .doc(tontineId)
         .collection('decaissements')
         .add({
-      'beneficiaire':
-          beneficiaireController.text.trim(),
-      'montant':
-          int.tryParse(montantController.text) ?? 0,
-      'motif': motifController.text.trim(),
-      'date': FieldValue.serverTimestamp(),
-      'enregistrePar':
-          FirebaseAuth.instance.currentUser?.uid ?? '',
-    });
+          'beneficiaire': beneficiaireController.text.trim(),
+          'montant': int.tryParse(montantController.text) ?? 0,
+          'motif': motifController.text.trim(),
+          'date': FieldValue.serverTimestamp(),
+          'enregistrePar': FirebaseAuth.instance.currentUser?.uid ?? '',
+        });
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -1,5 +1,6 @@
 // collation est dans les reunion formel
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme.dart';
@@ -378,5 +379,33 @@ class CollationTab extends StatelessWidget {
         ),
       );
     }
+
+    // Récupère le nom du validateur (bureau connecté)
+final validateurDoc = await FirebaseFirestore.instance
+    .collection('membres')
+    .doc(FirebaseAuth.instance.currentUser!.uid)
+    .get();
+final validateurNom =
+    validateurDoc['nom'] as String? ?? '';
+final validateurRole =
+    validateurDoc['role'] as String? ?? '';
+
+await FirebaseFirestore.instance
+    .collection('tontines')
+    .doc(tontineId)
+    .collection('cotisations')
+    .add({
+  'membreUid': membreUid,
+  'membreNom': membreNom,
+  'mois': mois,
+  'montant': montant,
+  'statut': 'paye',
+  'datePaiement': FieldValue.serverTimestamp(),
+  // ← Ajouts traçabilité
+  'validePar': FirebaseAuth.instance.currentUser!.uid,
+  'valideParNom': validateurNom,
+  'valideParRole': validateurRole,
+  'dateValidation': FieldValue.serverTimestamp(),
+});
   }
 }

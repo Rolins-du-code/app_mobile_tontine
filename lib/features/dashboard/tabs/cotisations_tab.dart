@@ -1,6 +1,7 @@
 // onglet reserver au cotisations pour le dashboard du tresorier de la tontine
 
- import 'package:flutter/material.dart';
+ import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme.dart';
 import '../../../core/notification_service.dart';
@@ -25,7 +26,7 @@ class CotisationsTab extends StatelessWidget {
     final jourLimite =
         data['jourLimite'] as String? ?? 'mercredi';
     final heureLimiteStr =
-        data['heureLimite'] as String? ?? '20:00';
+        data['heureLimite'] as String? ?? '00:00';
     final delaiGrace =
         data['delaiGraceHeures'] as int? ?? 0;
 
@@ -121,17 +122,24 @@ class CotisationsTab extends StatelessWidget {
                       borderRadius:
                           BorderRadius.circular(20),
                     ),
-                          child: Text(
-                      depasse
-                          ? '⏰ Délai dépassé'
-                          : '⏳ En cours',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: depasse
-                            ? AppColors.danger
-                            : AppColors.accent,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          depasse ? Icons.alarm : Icons.hourglass_top_rounded,
+                          size: 13,
+                          color: depasse ? AppColors.danger : AppColors.accent,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          depasse ? 'Délai dépassé' : 'En cours',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: depasse ? AppColors.danger : AppColors.accent,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -181,9 +189,8 @@ class CotisationsTab extends StatelessWidget {
                         label = 'En attente';
                         couleur = AppColors.accent;
                         fond = AppColors.accent
-                            .withOpacity(0.12);
+                            .withOpacity(0.12);  
                       }
-
                       return Container(
                         margin: const EdgeInsets.only(
                             bottom: 8),
@@ -249,6 +256,34 @@ class CotisationsTab extends StatelessWidget {
                                       color: AppColors.muted,
                                     ),
                                   ),
+                                  if (paye && snapCotis.data!.docs.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    () {
+                                      final cotisData = snapCotis.data!.docs.first.data()
+                                          as Map<String, dynamic>;
+                                      final validePar =
+                                          cotisData['valideParNom'] as String? ?? '';
+                                      final valideRole =
+                                          cotisData['valideParRole'] as String? ?? '';
+                                      final dateVal =
+                                          cotisData['dateValidation'] != null
+                                              ? (cotisData['dateValidation'] as Timestamp)
+                                                  .toDate()
+                                              : null;
+
+                                      if (validePar.isEmpty) return const SizedBox.shrink();
+
+                                      return Text(
+                                        'Validé par $validePar ($valideRole)'
+                                        '${dateVal != null ? ' · ${dateVal.day}/${dateVal.month}' : ''}',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: AppColors.muted,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      );
+                                    }(),
+                                  ],
                                 ],
                               ),
                             ),
@@ -292,7 +327,9 @@ class CotisationsTab extends StatelessWidget {
                                           '',
                                       moisCourant,
                                       palier,
+
                                     ),
+                                    
                                     child: const Padding(
                                           padding:
                                           EdgeInsets.only(
@@ -394,6 +431,34 @@ class CotisationsTab extends StatelessWidget {
         );
       }
     }
+
+    // Récupère le nom du validateur (bureau connecté)
+final validateurDoc = await FirebaseFirestore.instance
+    .collection('membres')
+    .doc(FirebaseAuth.instance.currentUser!.uid)
+    .get();
+final validateurNom =
+    validateurDoc['nom'] as String? ?? '';
+final validateurRole =
+    validateurDoc['role'] as String? ?? '';
+
+await FirebaseFirestore.instance
+    .collection('tontines')
+    .doc(tontineId)
+    .collection('cotisations')
+    .add({
+  'membreUid': membreUid,
+  'membreNom': membreNom,
+  'mois': mois,
+  'montant': montant,
+  'statut': 'paye',
+  'datePaiement': FieldValue.serverTimestamp(),
+  // ← Ajouts traçabilité
+  'validePar': FirebaseAuth.instance.currentUser!.uid,
+  'valideParNom': validateurNom,
+  'valideParRole': validateurRole,
+  'dateValidation': FieldValue.serverTimestamp(),
+});
   }
 
 

@@ -1024,6 +1024,10 @@ class _CarteEmpruntValidation extends StatelessWidget {
       ),
     );
     if (confirm != true) return;
+      final valDoc = await FirebaseFirestore.instance
+    .collection('membres')
+    .doc(FirebaseAuth.instance.currentUser!.uid)
+    .get();
 
     await FirebaseFirestore.instance
         .collection('tontines')
@@ -1033,6 +1037,7 @@ class _CarteEmpruntValidation extends StatelessWidget {
         .update({
       'valideTresorier': true,
       'dateTresorier': FieldValue.serverTimestamp(),
+      'tresorierNom': valDoc['nom'] as String? ?? '',
     });
   }
 
@@ -1061,7 +1066,10 @@ class _CarteEmpruntValidation extends StatelessWidget {
       ),
     );
     if (confirm != true) return;
-
+      final valDoc = await FirebaseFirestore.instance
+    .collection('membres')
+    .doc(FirebaseAuth.instance.currentUser!.uid)
+    .get();
     await FirebaseFirestore.instance
         .collection('tontines')
         .doc(tontineId)
@@ -1070,7 +1078,9 @@ class _CarteEmpruntValidation extends StatelessWidget {
         .update({
       'valideCommissaire': true,
       'dateCommissaire': FieldValue.serverTimestamp(),
+      'commissaireNom': valDoc['nom'] as String? ?? '',
     });
+    
   }
 
 

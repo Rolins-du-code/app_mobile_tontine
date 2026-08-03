@@ -1,6 +1,6 @@
 // onglet tontine pour le dashboard du tresorier de la tontine
 
- import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme.dart';
 
@@ -22,24 +22,21 @@ class AccueilTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final palier = tontineData['palier'] as int? ?? 0;
     final moisCourant = tontineData['moisCourant'] as int? ?? 1;
-    final solidariteActive =
-        tontineData['solidariteActive'] as bool? ?? false;
-    final montantSolidarite =
-        tontineData['montantSolidarite'] as int? ?? 0;
-    final collationActive =
-        tontineData['collationActive'] as bool? ?? false;
-    final montantCollation =
-        tontineData['montantCollation'] as int? ?? 0;
+    final solidariteActive = tontineData['solidariteActive'] as bool? ?? false;
+    final montantSolidarite = tontineData['montantSolidarite'] as int? ?? 0;
+    final collationActive = tontineData['collationActive'] as bool? ?? false;
+    final montantCollation = tontineData['montantCollation'] as int? ?? 0;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          // Caisse du mois 
-          _Titre(titre: 'Caisse du mois',
-              icone: Icons.account_balance_wallet_outlined),
+          // Caisse du mois
+          _Titre(
+            titre: 'Caisse du mois',
+            icone: Icons.account_balance_wallet_outlined,
+          ),
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('tontines')
@@ -62,7 +59,7 @@ class AccueilTab extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          //  Cotisations résumé 
+          //  Cotisations résumé
           _Titre(titre: 'Cotisations', icone: Icons.payments_outlined),
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
@@ -82,8 +79,7 @@ class AccueilTab extends StatelessWidget {
                     .snapshots(),
                 builder: (context, snapP) {
                   final payes = snapP.data?.docs.length ?? 0;
-                  final retard =
-                      (total - payes) < 0 ? 0 : total - payes;
+                  final retard = (total - payes) < 0 ? 0 : total - payes;
                   return Row(
                     children: [
                       Expanded(
@@ -111,11 +107,9 @@ class AccueilTab extends StatelessWidget {
           ),
 
           const SizedBox(height: 20),
-                 //  Solidarité 
+          //  Solidarité
           if (solidariteActive) ...[
-            _Titre(
-                titre: 'Solidarité',
-                icone: Icons.favorite_outline),
+            _Titre(titre: 'Solidarité', icone: Icons.favorite_outline),
             _CarteGrande(
               valeur: '$montantSolidarite FCFA / 3 mois',
               sous: estBureau
@@ -126,12 +120,188 @@ class AccueilTab extends StatelessWidget {
             ),
             const SizedBox(height: 20),
           ],
-
-          // Collation 
-          if (collationActive) ...[
+          // Après la section emprunts, ajoute :
+          if (estBureau) ...[
+            const SizedBox(height: 20),
             _Titre(
-                titre: 'Collation',
-                icone: Icons.restaurant_outlined),
+              titre: 'Gratification bureau',
+              icone: Icons.workspace_premium_outlined,
+            ),
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('tontines')
+                  .doc(tontineId)
+                  .collection('emprunts')
+                  .where('statut', isEqualTo: 'rembourse')
+                  .snapshots(),
+              builder: (context, snap) {
+                final emprunts = snap.data?.docs ?? [];
+
+                // Total des intérêts perçus
+                double totalInterets = 0;
+                for (final e in emprunts) {
+                  final data = e.data() as Map<String, dynamic>;
+                  final interets =
+                      double.tryParse(
+                        data['totalInterets']?.toString() ?? '0',
+                      ) ??
+                      0;
+                  totalInterets += interets;
+                }
+
+                final pct =
+                    (tontineData['gratificationPct'] as num?)?.toDouble() ?? 10.0;
+                final gratification = totalInterets * (pct / 100);
+
+                return FutureBuilder<QuerySnapshot>(
+                  future: FirebaseFirestore.instance
+                      .collection('tontines')
+                      .doc(tontineId)
+                      .collection('adhesions')
+                      .where(
+                        'role',
+                        whereIn: [
+                          'president',
+                          'tresorier',
+                          'secretaire_general',
+                          'commissaire_comptes',
+                        ],
+                      )
+                      .get(),
+                  builder: (context, snapBureau) {
+                    final nbBureau = snapBureau.data?.docs.length ?? 1;
+                    final partParPersonne = nbBureau > 0
+                        ? gratification / nbBureau
+                        : 0.0;
+
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.accent.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Total intérêts perçus',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.muted,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${totalInterets.toStringAsFixed(0)} FCFA',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.textDark,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${pct.toStringAsFixed(0)}% bureau',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Gratification totale',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.muted,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${gratification.toStringAsFixed(0)} FCFA',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.accent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      'Part / membre bureau',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.muted,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${partParPersonne.toStringAsFixed(0)} FCFA',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.success,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '$nbBureau membre(s) du bureau · '
+                            'versé en fin de cycle',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+          // Collation
+          if (collationActive) ...[
+            _Titre(titre: 'Collation', icone: Icons.restaurant_outlined),
             _CarteGrande(
               valeur: '$montantCollation FCFA / mois',
               sous: 'Par membre',
@@ -143,8 +313,9 @@ class AccueilTab extends StatelessWidget {
 
           //  Prochaine réunion
           _Titre(
-              titre: 'Prochaine réunion',
-              icone: Icons.calendar_month_outlined),
+            titre: 'Prochaine réunion',
+            icone: Icons.calendar_month_outlined,
+          ),
           _ProchaineMeeting(),
 
           const SizedBox(height: 30),
@@ -154,8 +325,7 @@ class AccueilTab extends StatelessWidget {
   }
 }
 
-
- //  Widgets communs 
+//  Widgets communs
 
 class _Titre extends StatelessWidget {
   final String titre;
@@ -170,11 +340,14 @@ class _Titre extends StatelessWidget {
         children: [
           Icon(icone, size: 17, color: AppColors.primary),
           const SizedBox(width: 8),
-          Text(titre,
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textDark)),
+          Text(
+            titre,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
+            ),
+          ),
         ],
       ),
     );
@@ -186,11 +359,12 @@ class _CarteGrande extends StatelessWidget {
   final String sous;
   final Color couleur;
   final IconData icone;
-  const _CarteGrande(
-      {required this.valeur,
-      required this.sous,
-      required this.couleur,
-      required this.icone});
+  const _CarteGrande({
+    required this.valeur,
+    required this.sous,
+    required this.couleur,
+    required this.icone,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +378,8 @@ class _CarteGrande extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 44, height: 44,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: couleur.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
@@ -215,14 +390,18 @@ class _CarteGrande extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(valeur,
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: couleur)),
-              Text(sous,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.muted)),
+              Text(
+                valeur,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: couleur,
+                ),
+              ),
+              Text(
+                sous,
+                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
             ],
           ),
         ],
@@ -236,11 +415,12 @@ class _CarteStat extends StatelessWidget {
   final String label;
   final Color couleur;
   final Color fond;
-  const _CarteStat(
-      {required this.valeur,
-      required this.label,
-      required this.couleur,
-      required this.fond});
+  const _CarteStat({
+    required this.valeur,
+    required this.label,
+    required this.couleur,
+    required this.fond,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -253,16 +433,22 @@ class _CarteStat extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(valeur,
-              style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: couleur)),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: couleur)),
+          Text(
+            valeur,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: couleur,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: couleur,
+            ),
+          ),
         ],
       ),
     );
@@ -291,8 +477,20 @@ class _ProchaineMeeting extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = _date();
     final diff = d.difference(DateTime.now()).inDays;
-    final mois = ['jan.','fév.','mars','avr.','mai','juin',
-        'juil.','août','sept.','oct.','nov.','déc.'];
+    final mois = [
+      'jan.',
+      'fév.',
+      'mars',
+      'avr.',
+      'mai',
+      'juin',
+      'juil.',
+      'août',
+      'sept.',
+      'oct.',
+      'nov.',
+      'déc.',
+    ];
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -303,28 +501,31 @@ class _ProchaineMeeting extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 44, height: 44,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: AppColors.accent.withOpacity(0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.event,
-                color: AppColors.accent, size: 22),
+            child: const Icon(Icons.event, color: AppColors.accent, size: 22),
           ),
           const SizedBox(width: 14),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Mercredi ${d.day} ${mois[d.month - 1]}',
-                  style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700)),
               Text(
-                  diff == 0
-                      ? "Aujourd'hui !"
-                      : 'Dans $diff jour${diff > 1 ? 's' : ''}',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.muted)),
+                'Mercredi ${d.day} ${mois[d.month - 1]}',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                diff == 0
+                    ? "Aujourd'hui !"
+                    : 'Dans $diff jour${diff > 1 ? 's' : ''}',
+                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
             ],
           ),
         ],

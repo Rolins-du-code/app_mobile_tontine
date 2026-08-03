@@ -25,6 +25,7 @@ class _ParametresTontineScreenState extends State<ParametresTontineScreen> {
   late int _delaiGraceHeures;
   late double _tauxInteret;
   late String _typeInteret;
+  late double _gratificationPct;
   bool _isLoading = false;
 
   final List<String> _jours = [
@@ -54,6 +55,7 @@ class _ParametresTontineScreenState extends State<ParametresTontineScreen> {
     _tauxInteret =
         (widget.tontineData['tauxInteret'] as num?)?.toDouble() ?? 3.0;
     _typeInteret = widget.tontineData['typeInteret'] as String? ?? 'simple';
+    _gratificationPct = (widget.tontineData['gratificationPct'] as num?)?.toDouble() ?? 10.0;
   }
 
   Future<void> _sauvegarder() async {
@@ -70,6 +72,7 @@ class _ParametresTontineScreenState extends State<ParametresTontineScreen> {
             'delaiGraceHeures': _delaiGraceHeures,
             'taux-Intéret': _tauxInteret,
             'type-Intéret': _typeInteret,
+            'gratificationPct': _gratificationPct,
           });
 
       if (!mounted) return;
@@ -237,6 +240,84 @@ class _ParametresTontineScreenState extends State<ParametresTontineScreen> {
                   ),
                 ),
               ),
+
+              const SizedBox(height: 28),
+
+                const Text(
+                  'Gratification du bureau',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  )),
+                const SizedBox(height: 6),
+                const Text(
+                  'Modifiable à tout moment par décision collective '
+                  'du bureau.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.muted,
+                  )),
+                const SizedBox(height: 16),
+
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Pourcentage des bénéfices',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: AppColors.muted,
+                      )),
+                    Text(
+                      '${_gratificationPct.toStringAsFixed(0)} %',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.accent,
+                        fontSize: 18,
+                      )),
+                  ],
+                ),
+                Slider(
+                  value: _gratificationPct,
+                  min: 0, max: 30, divisions: 30,
+                  activeColor: AppColors.accent,
+                  label:
+                      '${_gratificationPct.toStringAsFixed(0)} %',
+                  onChanged: (v) =>
+                      setState(() => _gratificationPct = v),
+                ),
+
+                // Aperçu du calcul
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.accent.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      _ligne(
+                        'Exemple : 100 000 FCFA d\'intérêts',
+                        '→ ${(100000 * _gratificationPct / 100).toStringAsFixed(0)} FCFA au bureau',
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _gratificationPct == 0
+                            ? 'Aucune gratification pour ce cycle.'
+                            : 'Réparti équitablement entre tous '
+                              'les membres du bureau.',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.muted,
+                          fontStyle: FontStyle.italic,
+                        )),
+                    ],
+                  ),
+                ),
 
               // Carte d'interes composé
               GestureDetector(
