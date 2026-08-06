@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme.dart';
+import '../calendrier_screen.dart';
 
 class AccueilTab extends StatelessWidget {
   final String tontineId;
@@ -21,22 +22,34 @@ class AccueilTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palier = tontineData['palier'] as int? ?? 0;
-    final moisCourant = tontineData['moisCourant'] as int? ?? 1;
-    final solidariteActive = tontineData['solidariteActive'] as bool? ?? false;
-    final montantSolidarite = tontineData['montantSolidarite'] as int? ?? 0;
-    final collationActive = tontineData['collationActive'] as bool? ?? false;
-    final montantCollation = tontineData['montantCollation'] as int? ?? 0;
+    final moisCourant =
+        tontineData['moisCourant'] as int? ?? 1;
+    final solidariteActive =
+        tontineData['solidariteActive'] as bool? ?? false;
+    final montantSolidarite =
+        tontineData['montantSolidarite'] as int? ?? 0;
+    final collationActive =
+        tontineData['collationActive'] as bool? ?? false;
+    final montantCollation =
+        tontineData['montantCollation'] as int? ?? 0;
+    final gratificationActive =
+        tontineData['gratificationActive'] as bool? ??
+            false;
+    final gratificationPct =
+        (tontineData['gratificationPct'] as num?)
+            ?.toDouble() ?? 0.0;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Caisse du mois
+
+          //  Caisse du mois 
           _Titre(
-            titre: 'Caisse du mois',
-            icone: Icons.account_balance_wallet_outlined,
-          ),
+              titre: 'Caisse du mois',
+              icone:
+                  Icons.account_balance_wallet_outlined),
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('tontines')
@@ -46,21 +59,30 @@ class AccueilTab extends StatelessWidget {
                 .where('statut', isEqualTo: 'paye')
                 .snapshots(),
             builder: (context, snap) {
-              final nb = snap.data?.docs.length ?? 0;
+              final docs = snap.data?.docs ?? [];
+              // Déduplique par membreUid
+              final uidsUniques = docs
+                  .map((d) =>
+                      (d.data() as Map<String,
+                          dynamic>)['membreUid']
+                          as String? ?? '')
+                  .toSet();
+              final nb = uidsUniques.length;
               final total = nb * palier;
               return _CarteGrande(
                 valeur: '$total FCFA',
-                sous: '$nb paiements reçus ce mois',
-                couleur: const Color.fromARGB(255, 34, 157, 79),
+                sous: '$nb paiement(s) reçu(s) ce mois',
+                couleur: AppColors.success,
                 icone: Icons.trending_up,
               );
             },
           ),
 
           const SizedBox(height: 20),
-
-          //  Cotisations résumé
-          _Titre(titre: 'Cotisations', icone: Icons.payments_outlined),
+          //  Cotisations résumé 
+          _Titre(
+              titre: 'Cotisations',
+              icone: Icons.payments_outlined),
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('tontines')
@@ -68,18 +90,31 @@ class AccueilTab extends StatelessWidget {
                 .collection('adhesions')
                 .snapshots(),
             builder: (context, snapM) {
-              final total = snapM.data?.docs.length ?? 0;
+              final totalMembres =
+                  snapM.data?.docs.length ?? 0;
               return StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('tontines')
                     .doc(tontineId)
                     .collection('cotisations')
-                    .where('mois', isEqualTo: moisCourant)
-                    .where('statut', isEqualTo: 'paye')
+                    .where('mois',
+                        isEqualTo: moisCourant)
+                    .where('statut',
+                        isEqualTo: 'paye')
                     .snapshots(),
                 builder: (context, snapP) {
-                  final payes = snapP.data?.docs.length ?? 0;
-                  final retard = (total - payes) < 0 ? 0 : total - payes;
+                  final docs = snapP.data?.docs ?? [];
+                  // Déduplique
+                  final uidsUniques = docs
+                      .map((d) =>
+                          (d.data() as Map<String,
+                              dynamic>)['membreUid']
+                              as String? ?? '')
+                      .toSet();
+                  final payes = uidsUniques.length;
+                  final retard = (totalMembres - payes)
+                      .clamp(0, totalMembres);
+
                   return Row(
                     children: [
                       Expanded(
@@ -95,7 +130,7 @@ class AccueilTab extends StatelessWidget {
                         child: _CarteStat(
                           valeur: '$retard',
                           label: 'En retard',
-                          couleur: const Color.fromARGB(255, 181, 46, 76),
+                          couleur: AppColors.danger,
                           fond: AppColors.dangerBg,
                         ),
                       ),
@@ -107,201 +142,28 @@ class AccueilTab extends StatelessWidget {
           ),
 
           const SizedBox(height: 20),
-          //  Solidarité
+
+          //  Solidarité 
           if (solidariteActive) ...[
-            _Titre(titre: 'Solidarité', icone: Icons.favorite_outline),
+            _Titre(
+                titre: 'Solidarité',
+                icone: Icons.favorite_outline),
             _CarteGrande(
-              valeur: '$montantSolidarite FCFA / 3 mois',
+              valeur: '$montantSolidarite FCFA / période',
               sous: estBureau
-                  ? 'Montant total en caisse visible ici'
+                  ? 'Voir le solde dans l\'onglet Solidarité'
                   : 'Contribution par membre',
               couleur: AppColors.primary,
               icone: Icons.shield_outlined,
             ),
             const SizedBox(height: 20),
           ],
-          // Après la section emprunts, ajoute :
-          if (estBureau) ...[
-            const SizedBox(height: 20),
-            _Titre(
-              titre: 'Gratification bureau',
-              icone: Icons.workspace_premium_outlined,
-            ),
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('tontines')
-                  .doc(tontineId)
-                  .collection('emprunts')
-                  .where('statut', isEqualTo: 'rembourse')
-                  .snapshots(),
-              builder: (context, snap) {
-                final emprunts = snap.data?.docs ?? [];
 
-                // Total des intérêts perçus
-                double totalInterets = 0;
-                for (final e in emprunts) {
-                  final data = e.data() as Map<String, dynamic>;
-                  final interets =
-                      double.tryParse(
-                        data['totalInterets']?.toString() ?? '0',
-                      ) ??
-                      0;
-                  totalInterets += interets;
-                }
-
-                final pct =
-                    (tontineData['gratificationPct'] as num?)?.toDouble() ?? 10.0;
-                final gratification = totalInterets * (pct / 100);
-
-                return FutureBuilder<QuerySnapshot>(
-                  future: FirebaseFirestore.instance
-                      .collection('tontines')
-                      .doc(tontineId)
-                      .collection('adhesions')
-                      .where(
-                        'role',
-                        whereIn: [
-                          'president',
-                          'tresorier',
-                          'secretaire_general',
-                          'commissaire_comptes',
-                        ],
-                      )
-                      .get(),
-                  builder: (context, snapBureau) {
-                    final nbBureau = snapBureau.data?.docs.length ?? 1;
-                    final partParPersonne = nbBureau > 0
-                        ? gratification / nbBureau
-                        : 0.0;
-
-                    return Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: AppColors.accent.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Total intérêts perçus',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.muted,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${totalInterets.toStringAsFixed(0)} FCFA',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.textDark,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.accent,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${pct.toStringAsFixed(0)}% bureau',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Gratification totale',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.muted,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${gratification.toStringAsFixed(0)} FCFA',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppColors.accent,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      'Part / membre bureau',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.muted,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${partParPersonne.toStringAsFixed(0)} FCFA',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppColors.success,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '$nbBureau membre(s) du bureau · '
-                            'versé en fin de cycle',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ],
-          // Collation
+          //  Collation 
           if (collationActive) ...[
-            _Titre(titre: 'Collation', icone: Icons.restaurant_outlined),
+            _Titre(
+                titre: 'Collation',
+                icone: Icons.restaurant_outlined),
             _CarteGrande(
               valeur: '$montantCollation FCFA / mois',
               sous: 'Par membre',
@@ -310,22 +172,189 @@ class AccueilTab extends StatelessWidget {
             ),
             const SizedBox(height: 20),
           ],
+          //  Gratification bureau 
+          if (estBureau && gratificationActive) ...[
+            _Titre(
+                titre: 'Gratification bureau',
+                icone:
+                    Icons.workspace_premium_outlined),
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('tontines')
+                  .doc(tontineId)
+                  .collection('emprunts')
+                  .where('statut',
+                      isEqualTo: 'rembourse')
+                  .snapshots(),
+              builder: (context, snap) {
+                final emprunts =
+                    snap.data?.docs ?? [];
+                double totalInterets = 0;
+                for (final e in emprunts) {
+                  final data = e.data()
+                      as Map<String, dynamic>;
+                  totalInterets += double.tryParse(
+                          data['totalInterets']
+                              ?.toString() ?? '0') ??
+                      0;
+                }
+                final gratification =
+                    totalInterets * (gratificationPct / 100);
 
-          //  Prochaine réunion
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent
+                        .withOpacity(0.08),
+                    borderRadius:
+                        BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppColors.accent
+                          .withOpacity(0.3),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment
+                                .spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment
+                                    .start,
+                            children: [
+                              const Text(
+                                'Total intérêts perçus',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        AppColors.muted)),
+                              Text(
+                                '${totalInterets.toStringAsFixed(0)} FCFA',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight:
+                                      FontWeight.w800,
+                                )),
+                            ],
+                          ),
+                          Container(
+                            padding:
+                                const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
+                              borderRadius:
+                                  BorderRadius.circular(
+                                      20),
+                            ),
+                            child: Text(
+                              '${gratificationPct.toStringAsFixed(0)}% bureau',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight:
+                                    FontWeight.w700,
+                              )),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment
+                                .spaceBetween,
+                        children: [
+                          Text(
+                            'Gratification : ${gratification.toStringAsFixed(0)} FCFA',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.accent,
+                              fontSize: 14,
+                            )),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          //  Prochaine réunion 
           _Titre(
-            titre: 'Prochaine réunion',
-            icone: Icons.calendar_month_outlined,
+              titre: 'Prochaine réunion',
+              icone: Icons.calendar_month_outlined),
+       
+
+            // Remplace le widget _ProchaineMeeting par :
+    GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CalendrierScreen(
+            tontineId: tontineId,
+            tontineData: tontineData,
+            estBureau: estBureau,
           ),
-          _ProchaineMeeting(),
-
-          const SizedBox(height: 30),
-        ],
+        ),
       ),
-    );
-  }
-}
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.event,
+                  color: AppColors.accent, size: 22),
+            ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text('Calendrier des événements',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700)),
+                    Text('Réunions, solidarité, emprunts…',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.muted)),
+                  ],
+                ),
+              ),
+                const Icon(Icons.chevron_right,
+                    color: AppColors.muted),
+              ],
+            ),
+          ),
+        ),
 
-//  Widgets communs
+                const SizedBox(height: 30),
+              ],
+            ),
+          );
+        }
+      }
+
+// Widgets communs 
 
 class _Titre extends StatelessWidget {
   final String titre;
@@ -340,14 +369,11 @@ class _Titre extends StatelessWidget {
         children: [
           Icon(icone, size: 17, color: AppColors.primary),
           const SizedBox(width: 8),
-          Text(
-            titre,
+          Text(titre,
             style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textDark,
-            ),
-          ),
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textDark)),
         ],
       ),
     );
@@ -378,8 +404,7 @@ class _CarteGrande extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 44, height: 44,
             decoration: BoxDecoration(
               color: couleur.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
@@ -390,18 +415,15 @@ class _CarteGrande extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                valeur,
+              Text(valeur,
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: couleur,
-                ),
-              ),
-              Text(
-                sous,
-                style: const TextStyle(fontSize: 12, color: AppColors.muted),
-              ),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: couleur)),
+              Text(sous,
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.muted)),
             ],
           ),
         ],
@@ -410,6 +432,7 @@ class _CarteGrande extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _CarteStat extends StatelessWidget {
   final String valeur;
   final String label;
@@ -429,36 +452,31 @@ class _CarteStat extends StatelessWidget {
       decoration: BoxDecoration(
         color: fond,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: couleur.withOpacity(0.3)),
+        border:
+            Border.all(color: couleur.withOpacity(0.3)),
       ),
       child: Column(
         children: [
-          Text(
-            valeur,
+          Text(valeur,
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: couleur,
-            ),
-          ),
-          Text(
-            label,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: couleur)),
+          Text(label,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: couleur,
-            ),
-          ),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: couleur)),
         ],
       ),
     );
   }
 }
 
+// ignore: unused_element
 class _ProchaineMeeting extends StatelessWidget {
   const _ProchaineMeeting();
-
-  DateTime _date() {
+      DateTime _date() {
     final now = DateTime.now();
     DateTime d = DateTime(now.year, now.month, 1);
     while (d.weekday != DateTime.wednesday) {
@@ -478,18 +496,8 @@ class _ProchaineMeeting extends StatelessWidget {
     final d = _date();
     final diff = d.difference(DateTime.now()).inDays;
     final mois = [
-      'jan.',
-      'fév.',
-      'mars',
-      'avr.',
-      'mai',
-      'juin',
-      'juil.',
-      'août',
-      'sept.',
-      'oct.',
-      'nov.',
-      'déc.',
+      'jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin',
+      'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'
     ];
     return Container(
       padding: const EdgeInsets.all(16),
@@ -501,13 +509,13 @@ class _ProchaineMeeting extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 44, height: 44,
             decoration: BoxDecoration(
               color: AppColors.accent.withOpacity(0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.event, color: AppColors.accent, size: 22),
+            child: const Icon(Icons.event,
+                color: AppColors.accent, size: 22),
           ),
           const SizedBox(width: 14),
           Column(
@@ -516,16 +524,15 @@ class _ProchaineMeeting extends StatelessWidget {
               Text(
                 'Mercredi ${d.day} ${mois[d.month - 1]}',
                 style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700)),
               Text(
                 diff == 0
-                    ? "Aujourd'hui !"
+                    ? 'Aujourd\'hui !'
                     : 'Dans $diff jour${diff > 1 ? 's' : ''}',
-                style: const TextStyle(fontSize: 12, color: AppColors.muted),
-              ),
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.muted)),
             ],
           ),
         ],

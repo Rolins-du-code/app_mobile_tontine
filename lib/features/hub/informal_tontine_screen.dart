@@ -1,6 +1,6 @@
 // ecrant pour les tontine informel les totine reserver au jeunne qui ne possaide pas trop de paramettre
 
- import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -14,13 +14,14 @@ class InformalTontineScreen extends StatefulWidget {
       _InformalTontineScreenState();
 }
 
-class _InformalTontineScreenState extends State<InformalTontineScreen> {
+class _InformalTontineScreenState
+    extends State<InformalTontineScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
   final _montantController = TextEditingController();
-  final _penaliteController = TextEditingController(text: '500');
+  final _penaliteController =
+      TextEditingController(text: '500');
 
-  // Fréquence
   String _frequence = 'hebdomadaire';
   final List<Map<String, String>> _frequences = [
     {'valeur': 'hebdomadaire', 'label': 'Chaque semaine'},
@@ -28,23 +29,17 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
     {'valeur': 'mensuelle', 'label': 'Chaque mois'},
   ];
 
-  // Jour limite
   String _jourLimite = 'samedi';
   final List<String> _jours = [
     'lundi', 'mardi', 'mercredi', 'jeudi',
-    'vendredi', 'samedi', 'dimanche'
+    'vendredi', 'samedi', 'dimanche',
   ];
 
-  // Heure limite
-  TimeOfDay _heureLimite = const TimeOfDay(hour: 20, minute: 0);
-
-  // Pénalité
+  TimeOfDay _heureLimite =
+      const TimeOfDay(hour: 20, minute: 0);
   bool _penaliteActive = true;
   int _delaiGraceHeures = 0;
-
-  // Reconduction
   bool _reconductionAuto = false;
-
   bool _isLoading = false;
 
   @override
@@ -59,13 +54,11 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
     final heure = await showTimePicker(
       context: context,
       initialTime: _heureLimite,
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
     );
     if (heure != null) setState(() => _heureLimite = heure);
   }
@@ -76,17 +69,48 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final uid = FirebaseAuth.instance.currentUser!.uid;
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Vous n\'êtes pas connecté')),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final uid = user.uid;
+
+      // Récupère les infos du créateur
       final membreDoc = await FirebaseFirestore.instance
           .collection('membres')
           .doc(uid)
           .get();
 
-      await FirebaseFirestore.instance.collection('tontines').add({
+      if (!membreDoc.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Profil introuvable')),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final nomMembre =
+          membreDoc['nom'] as String? ?? '';
+      final roleMembre =
+          membreDoc['role'] as String? ?? 'president';
+
+      // Crée la tontine
+      final tontineRef = await FirebaseFirestore.instance
+          .collection('tontines')
+          .add({
         'type': 'informelle',
         'nom': _nomController.text.trim(),
-        'montantCotisation': int.tryParse(
-                _montantController.text) ?? 0,
+        'montantCotisation':
+            int.tryParse(_montantController.text) ?? 0,
+        'palier':
+            int.tryParse(_montantController.text) ?? 0,
         'frequence': _frequence,
         'jourLimite': _jourLimite,
         'heureLimite':
@@ -100,17 +124,53 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
         'reconductionAuto': _reconductionAuto,
         'statut': 'actif',
         'tourCourant': 1,
+        'moisCourant': 1,
+        'dureeMois': 12,
         'createurUid': uid,
-        'createurNom': membreDoc['nom'],
+        'createurNom': nomMembre,
         'dateCreation': FieldValue.serverTimestamp(),
+        // Modules désactivés par défaut pour tontine informelle
+        'solidariteActive': false,
+        'collationActive': false,
+        'epargneActive': false,
+        'gratificationActive': false,
+        'gratificationPct': 0.0,
+        'tauxInteret': 0.0,
+        'typeInteret': 'simple',
+      });
+
+      // Crée l'adhésion du créateur ← MANQUAIT
+      await FirebaseFirestore.instance
+          .collection('tontines')
+          .doc(tontineRef.id)
+          .collection('adhesions')
+          .doc(uid)
+          .set({
+        'membreUid': uid,
+        'membreNom': nomMembre,
+        'role': roleMembre,
+        'dateAdhesion': FieldValue.serverTimestamp(),
+        'statut': 'actif',
+        'ordre': 1,
+      });
+
+      // Ajoute l'ID tontine dans le profil membre ← MANQUAIT
+      await FirebaseFirestore.instance
+          .collection('membres')
+          .doc(uid)
+          .update({
+        'tontines': FieldValue.arrayUnion([tontineRef.id]),
       });
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tontine créée avec succès !')),
+        const SnackBar(
+          content: Text('Tontine créée avec succès !'),
+          backgroundColor: AppColors.success,
+        ),
       );
       Navigator.pop(context);
-      Navigator.pop(context); // ← revient à l'écran de choix
+      Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur : $e')),
@@ -145,24 +205,25 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
 
-                // Nom 
                 _label('Nom du groupe'),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _nomController,
-                  textCapitalization: TextCapitalization.words,
+                  textCapitalization:
+                      TextCapitalization.words,
                   decoration: const InputDecoration(
                     hintText: 'Ex : Tontine amis lycée',
-                    prefixIcon: Icon(Icons.group_outlined),
+                    prefixIcon:
+                        Icon(Icons.group_outlined),
                   ),
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? 'Veuillez entrer un nom'
-                      : null,
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty
+                          ? 'Veuillez entrer un nom'
+                          : null,
                 ),
 
                 const SizedBox(height: 20),
 
-                //  Montant 
                 _label('Montant de cotisation (FCFA)'),
                 const SizedBox(height: 8),
                 TextFormField(
@@ -173,7 +234,8 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
                   ],
                   decoration: const InputDecoration(
                     hintText: 'Ex : 5000',
-                    prefixIcon: Icon(Icons.payments_outlined),
+                    prefixIcon:
+                        Icon(Icons.payments_outlined),
                     suffixText: 'FCFA',
                   ),
                   validator: (v) {
@@ -188,22 +250,22 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
                 ),
 
                 const SizedBox(height: 20),
-
-                // Fréquence
                 _label('Fréquence de cotisation'),
                 const SizedBox(height: 10),
                 ..._frequences.map((f) {
                   final sel = _frequence == f['valeur'];
                   return GestureDetector(
-                    onTap: () =>
-                        setState(() => _frequence = f['valeur']!),
+                    onTap: () => setState(
+                        () => _frequence = f['valeur']!),
                     child: Container(
-                      margin: const EdgeInsets.only(bottom: 8),
+                      margin:
+                          const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: sel
-                            ? AppColors.success.withOpacity(0.08)
+                            ? AppColors.success
+                                .withOpacity(0.08)
                             : AppColors.card,
                         border: Border.all(
                           color: sel
@@ -211,14 +273,16 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
                               : AppColors.border,
                           width: sel ? 2 : 1,
                         ),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius:
+                            BorderRadius.circular(10),
                       ),
                       child: Row(
                         children: [
                           Icon(
                             sel
                                 ? Icons.radio_button_checked
-                                : Icons.radio_button_unchecked,
+                                : Icons
+                                    .radio_button_unchecked,
                             color: sel
                                 ? AppColors.success
                                 : AppColors.muted,
@@ -244,38 +308,42 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
 
                 const SizedBox(height: 20),
 
-                //  Délai limite 
                 _label('Délai limite de paiement'),
                 const SizedBox(height: 10),
-
                 Row(
                   children: [
                     Expanded(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
                         children: [
                           const Text('Jour',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.muted)),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.muted)),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             value: _jourLimite,
-                            decoration: const InputDecoration(
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
+                            decoration:
+                                const InputDecoration(
+                              contentPadding:
+                                  EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10),
                             ),
-                            items: _jours.map((j) =>
-                              DropdownMenuItem(
-                                value: j,
-                                child: Text(
-                                  j[0].toUpperCase() + j.substring(1),
-                                  style: const TextStyle(fontSize: 13),
+                            items: _jours
+                                .map((j) => DropdownMenuItem(
+                                  value: j,
+                                  child: Text(
+                                    j[0].toUpperCase() +
+                                        j.substring(1),
+                                    style: const TextStyle(
+                                        fontSize: 13),
                                 ),
-                              ),
-                            ).toList(),
-                            onChanged: (v) =>
-                                setState(() => _jourLimite = v!),
+                                ))
+                                .toList(),
+                            onChanged: (v) => setState(
+                                () => _jourLimite = v!),
                           ),
                         ],
                       ),
@@ -283,39 +351,47 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
                         children: [
                           const Text('Heure',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.muted)),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.muted)),
                           const SizedBox(height: 6),
                           GestureDetector(
                             onTap: _choisirHeure,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 13),
+                              padding:
+                                  const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 13),
                               decoration: BoxDecoration(
                                 color: AppColors.card,
                                 border: Border.all(
                                     color: AppColors.border),
                                 borderRadius:
-                                    BorderRadius.circular(10),
+                                    BorderRadius.circular(
+                                        10),
                               ),
                               child: Row(
                                 mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                    MainAxisAlignment
+                                        .spaceBetween,
                                 children: [
                                   Text(
                                     '${_heureLimite.hour.toString().padLeft(2, '0')}:${_heureLimite.minute.toString().padLeft(2, '0')}',
                                     style: const TextStyle(
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight:
+                                          FontWeight.w600,
                                     ),
                                   ),
-                                  const Icon(Icons.access_time,
+                                  const Icon(
+                                      Icons.access_time,
                                       size: 16,
-                                      color: AppColors.muted),
+                                      color:
+                                          AppColors.muted),
                                 ],
                               ),
                             ),
@@ -328,9 +404,9 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
 
                 const SizedBox(height: 20),
 
-                //  Délai de grâce 
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
                   children: [
                     _label('Délai de grâce'),
                     Text(
@@ -347,57 +423,64 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
                 ),
                 Slider(
                   value: _delaiGraceHeures.toDouble(),
-                  min: 0,
-                  max: 48,
-                  divisions: 12,
+                  min: 0, max: 48, divisions: 12,
                   activeColor: AppColors.success,
                   label: _delaiGraceHeures == 0
                       ? 'Aucun'
                       : '$_delaiGraceHeures h',
-                  onChanged: (v) =>
-                      setState(() => _delaiGraceHeures = v.toInt()),
+                  onChanged: (v) => setState(
+                      () => _delaiGraceHeures = v.toInt()),
                 ),
 
                 const SizedBox(height: 8),
-
-                // Pénalité 
+                 // Pénalité
                 Container(
                   decoration: BoxDecoration(
                     color: AppColors.card,
-                    border: Border.all(color: AppColors.border),
+                    border:
+                        Border.all(color: AppColors.border),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     children: [
                       ListTile(
-                        title: const Text('Pénalité de retard',
+                        title: const Text(
+                          'Pénalité de retard',
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
-                              fontSize: 13.5)),
+                              fontSize: 13.5),
+                        ),
                         subtitle: const Text(
-                          'Montant ajouté automatiquement après le délai',
+                          'Montant ajouté après le délai',
                           style: TextStyle(
                               fontSize: 11.5,
-                              color: AppColors.muted)),
+                              color: AppColors.muted),
+                        ),
                         trailing: Switch(
                           value: _penaliteActive,
-                          onChanged: (v) =>
-                              setState(() => _penaliteActive = v),
+                          onChanged: (v) => setState(
+                              () => _penaliteActive = v),
                           activeColor: AppColors.success,
                         ),
                       ),
                       if (_penaliteActive)
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                              14, 0, 14, 14),
+                          padding:
+                              const EdgeInsets.fromLTRB(
+                                  14, 0, 14, 14),
                           child: TextFormField(
-                            controller: _penaliteController,
-                            keyboardType: TextInputType.number,
+                            controller:
+                                _penaliteController,
+                            keyboardType:
+                                TextInputType.number,
                             inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly
+                              FilteringTextInputFormatter
+                                  .digitsOnly
                             ],
-                            decoration: const InputDecoration(
-                              labelText: 'Montant pénalité (FCFA)',
+                            decoration:
+                                const InputDecoration(
+                              labelText:
+                                  'Montant pénalité (FCFA)',
                               hintText: 'Ex : 500',
                               suffixText: 'FCFA',
                             ),
@@ -408,11 +491,13 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
                 ),
 
                 const SizedBox(height: 12),
-                     //  Reconduction 
+
+                // Reconduction
                 Container(
                   decoration: BoxDecoration(
                     color: AppColors.card,
-                    border: Border.all(color: AppColors.border),
+                    border:
+                        Border.all(color: AppColors.border),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: ListTile(
@@ -423,15 +508,15 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
                           fontSize: 13.5),
                     ),
                     subtitle: const Text(
-                      'Relance le cycle automatiquement après le '
-                      'dernier tour',
+                      'Relance le cycle après le dernier tour',
                       style: TextStyle(
-                          fontSize: 11.5, color: AppColors.muted),
+                          fontSize: 11.5,
+                          color: AppColors.muted),
                     ),
                     trailing: Switch(
                       value: _reconductionAuto,
-                      onChanged: (v) =>
-                          setState(() => _reconductionAuto = v),
+                      onChanged: (v) => setState(
+                          () => _reconductionAuto = v),
                       activeColor: AppColors.success,
                     ),
                   ),
@@ -439,18 +524,21 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
 
                 const SizedBox(height: 20),
 
-                //  Récapitulatif 
+                // Récapitulatif
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.06),
+                    color:
+                    AppColors.success.withOpacity(0.06),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppColors.success.withOpacity(0.2),
+                      color: AppColors.success
+                          .withOpacity(0.2),
                     ),
                   ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
                     children: [
                       const Text('Récapitulatif',
                         style: TextStyle(
@@ -458,33 +546,43 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
                           color: AppColors.success,
                         )),
                       const SizedBox(height: 8),
-                      _ligne('Fréquence', _frequences.firstWhere(
-                          (f) => f['valeur'] == _frequence)['label']!),
-                      _ligne('Délai limite',
-                          '${_jourLimite[0].toUpperCase()}${_jourLimite.substring(1)} à ${_heureLimite.hour.toString().padLeft(2, '0')}:${_heureLimite.minute.toString().padLeft(2, '0')}'),
+                      _ligne(
+                        'Fréquence',
+                        _frequences.firstWhere((f) =>
+                            f['valeur'] ==
+                            _frequence)['label']!,
+                      ),
+                      _ligne(
+                        'Délai limite',
+                        '${_jourLimite[0].toUpperCase()}${_jourLimite.substring(1)} à '
+                        '${_heureLimite.hour.toString().padLeft(2, '0')}:${_heureLimite.minute.toString().padLeft(2, '0')}',
+                      ),
                       if (_penaliteActive)
                         _ligne('Pénalité de retard',
                             '${_penaliteController.text} FCFA'),
                       _ligne('Reconduction',
-                          _reconductionAuto ? 'Automatique' : 'Manuelle'),
+                          _reconductionAuto
+                              ? 'Automatique'
+                              : 'Manuelle'),
                     ],
                   ),
                 ),
 
                 const SizedBox(height: 32),
 
-                //  Bouton créer
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.success,
                   ),
-                  onPressed: _isLoading ? null : _creerTontine,
+                  onPressed:
+                      _isLoading ? null : _creerTontine,
                   child: _isLoading
                       ? const SizedBox(
                           height: 20, width: 20,
                           child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2),
-                        )
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ))
                       : const Text(
                           'Créer la tontine',
                           style: TextStyle(
@@ -493,6 +591,7 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
                           ),
                         ),
                 ),
+
                 const SizedBox(height: 24),
               ],
             ),
@@ -510,7 +609,9 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
       color: AppColors.muted,
     ),
   );
- Widget _ligne(String label, String valeur) => Padding(
+
+  // ignore: unused_element
+  Widget _ligne(String label, String valeur) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 3),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -520,10 +621,8 @@ class _InformalTontineScreenState extends State<InformalTontineScreen> {
               fontSize: 13, color: AppColors.muted)),
         Text(valeur,
           style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textDark,
-          )),
+              fontSize: 13,
+              fontWeight: FontWeight.w600)),
       ],
     ),
   );

@@ -74,17 +74,17 @@ class _DashboardTontineScreenState extends State<DashboardTontineScreen> {
             tontineData: t,
             estBureau: _estBureau,
           ),
+            EmpruntsTab(
+            tontineId: widget.tontineId,
+            role: widget.role,
+            estBureau: _estBureau,
+            tontineData: t,
+          ),
           if (epargneActive) EpargneTab(
             tontineId: widget.tontineId,
             role: widget.role,
             tontineData: t,
             estBureau: _estBureau,
-          ),
-          EmpruntsTab(
-            tontineId: widget.tontineId,
-            role: widget.role,
-            estBureau: _estBureau,
-            tontineData: t,
           ),
           MembresTab(
             tontineId: widget.tontineId,

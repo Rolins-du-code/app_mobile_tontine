@@ -363,103 +363,117 @@ class CotisationsTab extends StatelessWidget {
   }
 
   Future<void> _marquerPaye(
-    BuildContext context,
-    String membreUid,
-    String membreNom,
-    int mois,
-    int montant,
-  ) async {
-    // Confirmation
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirmer le paiement'),
-        content: Text(
-            'Marquer $membreNom comme ayant payé $montant FCFA pour le mois $mois ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmer'),
-          ),
-        ],
+  BuildContext context,
+  String membreUid,
+  String membreNom,
+  int mois,
+  int montant,
+) async {
+  // Confirmation
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Confirmer le paiement'),
+      content: Text(
+        'Marquer $membreNom comme ayant payé '
+        '$montant FCFA pour le mois $mois ?',
       ),
-    );
-        // Après avoir enregistré le paiement, notifie le membre
-        await NotificationService.envoyer(
-          membreUid: membreUid,
-          titre: 'Cotisation enregistrée ✅',
-          message:
-              'Votre cotisation de $montant FCFA pour le '
-              'mois $mois a été enregistrée.',
-          type: 'cotisation',
-          tontineId: tontineId,
-          tontineNom: tontineData['nom'] as String? ?? '',
-        );
-    if (confirm != true) return;
+      actions: [
+        TextButton(
+          onPressed: () =>
+              Navigator.pop(context, false),
+          child: const Text('Annuler'),
+        ),
+        ElevatedButton(
+          onPressed: () =>
+              Navigator.pop(context, true),
+          child: const Text('Confirmer'),
+        ),
+      ],
+    ),
+  );
 
+  if (confirm != true) return;
+
+  try {
+    final validateurUid =
+        FirebaseAuth.instance.currentUser!.uid;
+
+    // Récupère les infos du validateur
+    String validateurNom = '';
+    String validateurRole = '';
     try {
-      await FirebaseFirestore.instance
-          .collection('tontines')
-          .doc(tontineId)
-          .collection('cotisations')
-          .add({
-        'membreUid': membreUid,
-        'membreNom': membreNom,
-        'mois': mois,
-        'montant': montant,
-        'statut': 'paye',
-        'datePaiement': FieldValue.serverTimestamp(),
-      });
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('$membreNom marqué payé !'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+      final validateurDoc =
+          await FirebaseFirestore.instance
+              .collection('membres')
+              .doc(validateurUid)
+              .get();
+      if (validateurDoc.exists) {
+        validateurNom =
+            validateurDoc['nom'] as String? ?? '';
+        validateurRole =
+            validateurDoc['role'] as String? ?? '';
       }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e')),
-        );
-      }
+    } catch (_) {
+      // Ignore si la lecture du validateur échoue
     }
 
-    // Récupère le nom du validateur (bureau connecté)
-final validateurDoc = await FirebaseFirestore.instance
-    .collection('membres')
-    .doc(FirebaseAuth.instance.currentUser!.uid)
-    .get();
-final validateurNom =
-    validateurDoc['nom'] as String? ?? '';
-final validateurRole =
-    validateurDoc['role'] as String? ?? '';
+    // Enregistre le paiement
+    await FirebaseFirestore.instance
+        .collection('tontines')
+        .doc(tontineId)
+        .collection('cotisations')
+        .add({
+      'membreUid': membreUid,
+      'membreNom': membreNom,
+      'mois': mois,
+      'montant': montant,
+      'statut': 'paye',
+      'datePaiement': FieldValue.serverTimestamp(),
+      'validePar': validateurUid,
+      'valideParNom': validateurNom,
+      'valideParRole': validateurRole,
+      'dateValidation': FieldValue.serverTimestamp(),
+    });
 
-await FirebaseFirestore.instance
-    .collection('tontines')
-    .doc(tontineId)
-    .collection('cotisations')
-    .add({
-  'membreUid': membreUid,
-  'membreNom': membreNom,
-  'mois': mois,
-  'montant': montant,
-  'statut': 'paye',
-  'datePaiement': FieldValue.serverTimestamp(),
-  // ← Ajouts traçabilité
-  'validePar': FirebaseAuth.instance.currentUser!.uid,
-  'valideParNom': validateurNom,
-  'valideParRole': validateurRole,
-  'dateValidation': FieldValue.serverTimestamp(),
-});
+    // Notifie le membre (optionnel, ne bloque pas)
+    try {
+      await NotificationService.envoyer(
+        membreUid: membreUid,
+        titre: 'Cotisation enregistrée ✅',
+        message:
+            'Votre cotisation de $montant FCFA '
+            'pour le mois $mois a été enregistrée'
+            '${validateurNom.isNotEmpty ? ' par $validateurNom' : ''}.',
+        type: 'cotisation',
+        tontineId: tontineId,
+        tontineNom:
+            tontineData['nom'] as String? ?? '',
+      );
+    } catch (_) {
+      // La notification n'est pas critique
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$membreNom marqué payé !'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur : $e'),
+          backgroundColor: AppColors.danger,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
+}
 
 
 }
