@@ -1,4 +1,4 @@
-// section empreunts pour le dashboard du tresorier de la tontine
+// section emprunts pour le dashboard de la tontine
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
@@ -69,7 +69,7 @@ class EmpruntsTab extends StatelessWidget {
   }
 }
 
-//  Mes emprunts 
+// Mes emprunts
 class _MesEmprunts extends StatelessWidget {
   final String tontineId;
   final String uid;
@@ -89,29 +89,22 @@ class _MesEmprunts extends StatelessWidget {
           .where('demandeurUid', isEqualTo: uid)
           .snapshots(),
       builder: (context, snap) {
-        if (snap.connectionState ==
-            ConnectionState.waiting) {
-          return const Center(
-              child: CircularProgressIndicator());
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
         }
         final emprunts = snap.data?.docs ?? [];
         if (emprunts.isEmpty) {
           return const Center(
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.handshake_outlined,
-                    size: 50, color: AppColors.muted),
+                Icon(Icons.handshake_outlined, size: 50, color: AppColors.muted),
                 SizedBox(height: 12),
                 Text('Aucun emprunt',
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700)),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                 SizedBox(height: 6),
                 Text('Vos emprunts apparaîtront ici.',
-                    style: TextStyle(
-                        color: AppColors.muted)),
+                    style: TextStyle(color: AppColors.muted)),
               ],
             ),
           );
@@ -120,8 +113,7 @@ class _MesEmprunts extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           itemCount: emprunts.length,
           itemBuilder: (context, i) {
-            final e = emprunts[i].data()
-                as Map<String, dynamic>;
+            final e = emprunts[i].data() as Map<String, dynamic>;
             return _CarteEmprunt(
               data: e,
               afficherRemboursement: false,
@@ -134,7 +126,7 @@ class _MesEmprunts extends StatelessWidget {
   }
 }
 
-//  Demande d'emprunt
+// Demande d'emprunt
 class _DemandeEmprunt extends StatefulWidget {
   final String tontineId;
   final String uid;
@@ -146,33 +138,25 @@ class _DemandeEmprunt extends StatefulWidget {
   });
 
   @override
-  State<_DemandeEmprunt> createState() =>
-      _DemandeEmpruntState();
+  State<_DemandeEmprunt> createState() => _DemandeEmpruntState();
 }
 
-class _DemandeEmpruntState
-    extends State<_DemandeEmprunt> {
+class _DemandeEmpruntState extends State<_DemandeEmprunt> {
   final _formKey = GlobalKey<FormState>();
   final _montantController = TextEditingController();
   final _motifController = TextEditingController();
   int _dureeMois = 1;
   bool _isLoading = false;
 
-  int get _dureeTontine =>
-      widget.tontineData['dureeMois'] as int? ?? 12;
-  double get _taux =>
-      (widget.tontineData['tauxInteret'] as num?)
-          ?.toDouble() ?? 3.0;
-  String get _typeInteret =>
-      widget.tontineData['typeInteret'] as String? ??
-      'simple';
+  int get _dureeTontine => widget.tontineData['dureeMois'] as int? ?? 12;
+  double get _taux => (widget.tontineData['tauxInteret'] as num?)?.toDouble() ?? 3.0;
+  String get _typeInteret => widget.tontineData['typeInteret'] as String? ?? 'simple';
   bool get _interetsActifs => _taux > 0;
 
   @override
   void initState() {
     super.initState();
-    _montantController.addListener(
-        () => setState(() {}));
+    _montantController.addListener(() => setState(() {}));
   }
 
   @override
@@ -187,9 +171,7 @@ class _DemandeEmpruntState
       return {
         'totalInterets': 0,
         'total': capital.toDouble(),
-        'mensualite': _dureeMois > 0
-            ? capital / _dureeMois
-            : 0,
+        'mensualite': _dureeMois > 0 ? capital / _dureeMois : 0,
       };
     }
     final r = _taux / 100;
@@ -197,8 +179,7 @@ class _DemandeEmpruntState
     double mensualite;
     if (_typeInteret == 'simple') {
       totalInterets = capital * r * _dureeMois;
-      mensualite =
-          (capital + totalInterets) / _dureeMois;
+      mensualite = (capital + totalInterets) / _dureeMois;
     } else {
       if (r == 0) {
         mensualite = capital / _dureeMois;
@@ -207,8 +188,7 @@ class _DemandeEmpruntState
         mensualite = capital *
             (r * pow(1 + r, _dureeMois)) /
             (pow(1 + r, _dureeMois) - 1);
-        totalInterets =
-            (mensualite * _dureeMois) - capital;
+        totalInterets = (mensualite * _dureeMois) - capital;
       }
     }
     return {
@@ -222,24 +202,20 @@ class _DemandeEmpruntState
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
-      final existant =
-          await FirebaseFirestore.instance
-              .collection('tontines')
-              .doc(widget.tontineId)
-              .collection('emprunts')
-              .where('demandeurUid',
-                  isEqualTo: widget.uid)
-              .where('statut',
-                  whereIn: ['en_attente', 'approuve'])
-              .limit(1)
-              .get();
+      final existant = await FirebaseFirestore.instance
+          .collection('tontines')
+          .doc(widget.tontineId)
+          .collection('emprunts')
+          .where('demandeurUid', isEqualTo: widget.uid)
+          .where('statut', whereIn: ['en_attente', 'approuve'])
+          .limit(1)
+          .get();
 
       if (existant.docs.isNotEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                  'Vous avez déjà un emprunt en cours.'),
+              content: Text('Vous avez déjà un emprunt en cours.'),
             ),
           );
         }
@@ -247,17 +223,13 @@ class _DemandeEmpruntState
         return;
       }
 
-      final membreDoc =
-          await FirebaseFirestore.instance
-              .collection('membres')
-              .doc(widget.uid)
-              .get();
+      final membreDoc = await FirebaseFirestore.instance
+          .collection('membres')
+          .doc(widget.uid)
+          .get();
 
-      final nom =
-          membreDoc['nom'] as String? ?? '';
-      final capital = int.tryParse(
-              _montantController.text.trim()) ??
-          0;
+      final nom = membreDoc['nom'] as String? ?? '';
+      final capital = int.tryParse(_montantController.text.trim()) ?? 0;
       final calc = _calculer(capital);
 
       await FirebaseFirestore.instance
@@ -274,25 +246,21 @@ class _DemandeEmpruntState
         'montantRembourse': 0,
         'tauxInteret': _taux,
         'typeInteret': _typeInteret,
-        'totalInterets':
-            calc['totalInterets']!.toStringAsFixed(0),
-        'totalARembourser':
-            calc['total']!.toStringAsFixed(0),
-        'mensualiteEstimee':
-            calc['mensualite']!.toStringAsFixed(0),
+        'totalInterets': calc['totalInterets']!.toStringAsFixed(0),
+        'totalARembourser': calc['total']!.toStringAsFixed(0),
+        'mensualiteEstimee': calc['mensualite']!.toStringAsFixed(0),
         'valideTresorier': false,
         'valideCommissaire': false,
         'dateCreation': FieldValue.serverTimestamp(),
       });
-    if (!mounted) return;
+      if (!mounted) return;
       _montantController.clear();
       _motifController.clear();
       setState(() => _dureeMois = 1);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'Demande envoyée ! En attente de validation.'),
+          content: Text('Demande envoyée ! En attente de validation.'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -309,8 +277,7 @@ class _DemandeEmpruntState
 
   @override
   Widget build(BuildContext context) {
-    final capital =
-        int.tryParse(_montantController.text) ?? 0;
+    final capital = int.tryParse(_montantController.text) ?? 0;
     final calc = _calculer(capital);
 
     return SingleChildScrollView(
@@ -318,21 +285,14 @@ class _DemandeEmpruntState
       child: Form(
         key: _formKey,
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Faire une demande d\'emprunt',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700)),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
-            const Text(
-                'Votre demande sera examinée par le bureau.',
-                style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.muted)),
+            const Text('Votre demande sera examinée par le bureau.',
+                style: TextStyle(fontSize: 13, color: AppColors.muted)),
             const SizedBox(height: 24),
-
             const Text('Montant souhaité',
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
@@ -342,31 +302,21 @@ class _DemandeEmpruntState
             TextFormField(
               controller: _montantController,
               keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly
-              ],
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(
                 hintText: 'Ex : 50000',
-                prefixIcon:
-                    Icon(Icons.payments_outlined),
+                prefixIcon: Icon(Icons.payments_outlined),
                 suffixText: 'FCFA',
               ),
               validator: (v) {
-                if (v == null || v.isEmpty) {
-                  return 'Entrez un montant';
-                }
-                if ((int.tryParse(v) ?? 0) <= 0) {
-                  return 'Montant invalide';
-                }
+                if (v == null || v.isEmpty) return 'Entrez un montant';
+                if ((int.tryParse(v) ?? 0) <= 0) return 'Montant invalide';
                 return null;
               },
             ),
-
             const SizedBox(height: 20),
-
             Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Durée de remboursement',
                     style: TextStyle(
@@ -389,20 +339,15 @@ class _DemandeEmpruntState
               divisions: _dureeTontine - 1,
               activeColor: AppColors.primary,
               label: '$_dureeMois mois',
-              onChanged: (v) => setState(
-                  () => _dureeMois = v.toInt()),
+              onChanged: (v) => setState(() => _dureeMois = v.toInt()),
             ),
             Text(
-              'Maximum : $_dureeTontine mois '
-              '(durée de la tontine)',
-              style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.muted)),
-
+              'Maximum : $_dureeTontine mois (durée de la tontine)',
+              style: const TextStyle(fontSize: 11, color: AppColors.muted),
+            ),
             const SizedBox(height: 20),
-
             const Text('Motif de l\'emprunt',
-                    style: TextStyle(
+                style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                     color: AppColors.muted)),
@@ -411,40 +356,29 @@ class _DemandeEmpruntState
               controller: _motifController,
               maxLines: 3,
               decoration: const InputDecoration(
-                hintText:
-                    'Expliquez brièvement votre demande...',
+                hintText: 'Expliquez brièvement votre demande...',
               ),
               validator: (v) =>
-                  v == null || v.trim().isEmpty
-                      ? 'Entrez un motif'
-                      : null,
+                  v == null || v.trim().isEmpty ? 'Entrez un motif' : null,
             ),
-
-            // Simulation
             if (capital > 0) ...[
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppColors.primary
-                      .withOpacity(0.06),
-                  borderRadius:
-                      BorderRadius.circular(12),
+                  color: AppColors.primary.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppColors.primary
-                        .withOpacity(0.2),
+                    color: AppColors.primary.withOpacity(0.2),
                   ),
                 ),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const Icon(
-                            Icons.calculate_outlined,
-                            color: AppColors.primary,
-                            size: 16),
+                        const Icon(Icons.calculate_outlined,
+                            color: AppColors.primary, size: 16),
                         const SizedBox(width: 6),
                         Text(
                           _interetsActifs
@@ -474,22 +408,18 @@ class _DemandeEmpruntState
                 ),
               ),
             ],
-
             const SizedBox(height: 32),
-
             ElevatedButton(
-              onPressed:
-                  _isLoading ? null : _soumettre,
+              onPressed: _isLoading ? null : _soumettre,
               child: _isLoading
                   ? const SizedBox(
-                      height: 20, width: 20,
+                      height: 20,
+                      width: 20,
                       child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2))
+                          color: Colors.white, strokeWidth: 2))
                   : const Text('Soumettre la demande',
                       style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700)),
+                          fontSize: 16, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -497,26 +427,22 @@ class _DemandeEmpruntState
     );
   }
 
-  Widget _ligne(String label, String valeur) =>
-      Padding(
+  Widget _ligne(String label, String valeur) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
-          mainAxisAlignment:
-              MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label,
-                style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.muted)),
+                style: const TextStyle(fontSize: 12, color: AppColors.muted)),
             Text(valeur,
                 style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700)),
+                    fontSize: 12, fontWeight: FontWeight.w700)),
           ],
         ),
       );
 }
-//  Validation (bureau) 
+
+// Validation (bureau)
 class _ValidationEmprunts extends StatelessWidget {
   final String tontineId;
   final Map<String, dynamic> tontineData;
@@ -528,12 +454,9 @@ class _ValidationEmprunts extends StatelessWidget {
     required this.role,
   });
 
-  bool get _lectureSeule =>
-      role == 'secretaire_general';
-  bool get _peutValiderTresorier =>
-      role == 'tresorier';
-  bool get _peutValiderCommissaire =>
-      role == 'commissaire_comptes';
+  bool get _lectureSeule => role == 'secretaire_general';
+  bool get _peutValiderTresorier => role == 'tresorier';
+  bool get _peutValiderCommissaire => role == 'commissaire_comptes';
   bool get _peutApprouver => role == 'president';
 
   @override
@@ -541,13 +464,11 @@ class _ValidationEmprunts extends StatelessWidget {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           color: AppColors.card,
           child: Row(
             children: [
-              const Icon(Icons.info_outline,
-                  size: 16, color: AppColors.muted),
+              const Icon(Icons.info_outline, size: 16, color: AppColors.muted),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -558,9 +479,7 @@ class _ValidationEmprunts extends StatelessWidget {
                           : _peutValiderCommissaire
                               ? 'Commissaire — valide la conformité'
                               : 'Président — approuve l\'emprunt',
-                  style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.muted),
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
               ),
             ],
@@ -574,36 +493,25 @@ class _ValidationEmprunts extends StatelessWidget {
                 .collection('emprunts')
                 .snapshots(),
             builder: (context, snap) {
-              if (snap.connectionState ==
-                  ConnectionState.waiting) {
-                return const Center(
-                    child:
-                        CircularProgressIndicator());
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
               }
-              final emprunts =
-                  snap.data?.docs ?? [];
+              final emprunts = snap.data?.docs ?? [];
               if (emprunts.isEmpty) {
                 return const Center(
                   child: Text('Aucune demande.',
-                      style: TextStyle(
-                          color: AppColors.muted)),
+                      style: TextStyle(color: AppColors.muted)),
                 );
               }
               return ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: emprunts.length,
                 itemBuilder: (context, i) {
-                  final e = emprunts[i].data()
-                      as Map<String, dynamic>;
+                  final e = emprunts[i].data() as Map<String, dynamic>;
                   final id = emprunts[i].id;
-                  final statut =
-                      e['statut'] as String? ?? '';
-                  final valTresorier =
-                      e['valideTresorier']
-                          as bool? ?? false;
-                  final valCommissaire =
-                      e['valideCommissaire']
-                          as bool? ?? false;
+                  final statut = e['statut'] as String? ?? '';
+                  final valTresorier = e['valideTresorier'] as bool? ?? false;
+                  final valCommissaire = e['valideCommissaire'] as bool? ?? false;
 
                   return _CarteEmpruntValidation(
                     data: e,
@@ -611,23 +519,21 @@ class _ValidationEmprunts extends StatelessWidget {
                     tontineId: tontineId,
                     role: role,
                     lectureSeule: _lectureSeule,
-                    peutValiderTresorier:
-                        _peutValiderTresorier &&
-                            !valTresorier &&
-                            statut == 'en_attente',
-                    peutValiderCommissaire:
-                        _peutValiderCommissaire &&
-                            valTresorier &&
-                            !valCommissaire &&
-                            statut == 'en_attente',
+                    peutValiderTresorier: _peutValiderTresorier &&
+                        !valTresorier &&
+                        statut == 'en_attente',
+                    peutValiderCommissaire: _peutValiderCommissaire &&
+                        valTresorier &&
+                        !valCommissaire &&
+                        statut == 'en_attente',
                     peutApprouver: _peutApprouver &&
                         valTresorier &&
                         valCommissaire &&
                         statut == 'en_attente',
-                    peutRembourser:
-                        (role == 'tresorier' ||
-                            role == 'president') &&
-                            statut == 'approuve',
+                    // 🟢 SEULS LE TRÉSORIER ET LE COMMISSAIRE AUX COMPTES PEUVENT ENREGISTRER UN REMBOURSEMENT
+                    peutRembourser: (role == 'tresorier' ||
+                            role == 'commissaire_comptes') &&
+                        statut == 'approuve',
                   );
                 },
               );
@@ -639,7 +545,7 @@ class _ValidationEmprunts extends StatelessWidget {
   }
 }
 
-//  Carte validation 
+// Carte validation
 class _CarteEmpruntValidation extends StatelessWidget {
   final Map<String, dynamic> data;
   final String empruntId;
@@ -665,24 +571,16 @@ class _CarteEmpruntValidation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statut =
-        data['statut'] as String? ?? '';
+    final statut = data['statut'] as String? ?? '';
     final montant = data['montant'] as int? ?? 0;
-    final demandeurNom =
-        data['demandeurNom'] as String? ?? '';
+    final demandeurNom = data['demandeurNom'] as String? ?? '';
     final motif = data['motif'] as String? ?? '';
-    final dureeMois =
-        data['dureeMois'] as int? ?? 1;
-    final valTresorier =
-        data['valideTresorier'] as bool? ?? false;
-    final valCommissaire =
-        data['valideCommissaire'] as bool? ?? false;
-    final montantRembourse =
-        data['montantRembourse'] as int? ?? 0;
-    final tresorierNom =
-        data['tresorierNom'] as String? ?? '';
-    final commissaireNom =
-        data['commissaireNom'] as String? ?? '';
+    final dureeMois = data['dureeMois'] as int? ?? 1;
+    final valTresorier = data['valideTresorier'] as bool? ?? false;
+    final valCommissaire = data['valideCommissaire'] as bool? ?? false;
+    final montantRembourse = data['montantRembourse'] as int? ?? 0;
+    final tresorierNom = data['tresorierNom'] as String? ?? '';
+    final commissaireNom = data['commissaireNom'] as String? ?? '';
 
     Color couleur;
     String label;
@@ -710,28 +608,23 @@ class _CarteEmpruntValidation extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: couleur.withOpacity(0.3)),
+        border: Border.all(color: couleur.withOpacity(0.3)),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(demandeurNom,
                   style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15)),
+                      fontWeight: FontWeight.w700, fontSize: 15)),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: couleur.withOpacity(0.1),
-                  borderRadius:
-                      BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(label,
                     style: TextStyle(
@@ -752,9 +645,7 @@ class _CarteEmpruntValidation extends StatelessWidget {
           if (motif.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(motif,
-                style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.muted)),
+                style: const TextStyle(fontSize: 12, color: AppColors.muted)),
           ],
 
           // Progression de validation
@@ -768,60 +659,44 @@ class _CarteEmpruntValidation extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                _etape('Demande', true,
-                    Icons.assignment_outlined),
+                _etape('Demande', true, Icons.assignment_outlined),
                 _ligne(valTresorier),
                 _etape('Trésorier', valTresorier,
                     Icons.account_balance_wallet_outlined,
-                    sousTitre: valTresorier
-                        ? tresorierNom
-                        : null),
+                    sousTitre: valTresorier ? tresorierNom : null),
                 _ligne(valCommissaire),
-                _etape('Commissaire', valCommissaire,
-                    Icons.fact_check_outlined,
-                    sousTitre: valCommissaire
-                        ? commissaireNom
-                        : null),
+                _etape('Commissaire', valCommissaire, Icons.fact_check_outlined,
+                    sousTitre: valCommissaire ? commissaireNom : null),
                 _ligne(statut == 'approuve'),
-                _etape('Président',
-                    statut == 'approuve',
-                    Icons.star_outline),
+                _etape('Président', statut == 'approuve', Icons.star_outline),
               ],
             ),
           ],
 
           // Barre remboursement
-          if (statut == 'approuve' ||
-              statut == 'rembourse') ...[
+          if (statut == 'approuve' || statut == 'rembourse') ...[
             const SizedBox(height: 10),
             Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Text('Remboursé : $montantRembourse / $montant FCFA',
+                    style: const TextStyle(
+                        fontSize: 11.5, color: AppColors.muted)),
                 Text(
-                  'Remboursé : $montantRembourse / $montant FCFA',
-                  style: const TextStyle(
-                      fontSize: 11.5,
-                      color: AppColors.muted)),
-                Text(
-                  '${montant > 0 ? (montantRembourse / montant * 100).toStringAsFixed(0) : 0}%',
-                  style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary)),
+                    '${montant > 0 ? (montantRembourse / montant * 100).toStringAsFixed(0) : 0}%',
+                    style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary)),
               ],
             ),
             const SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: montant > 0
-                    ? montantRembourse / montant
-                    : 0,
+                value: montant > 0 ? montantRembourse / montant : 0,
                 backgroundColor: AppColors.border,
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(
-                        couleur),
+                valueColor: AlwaysStoppedAnimation<Color>(couleur),
                 minHeight: 5,
               ),
             ),
@@ -831,90 +706,70 @@ class _CarteEmpruntValidation extends StatelessWidget {
           if (!lectureSeule) ...[
             const SizedBox(height: 12),
             if (peutValiderTresorier)
-              _boutonAction(context,
-                label:
-                    'Valider — fonds disponibles',
+              _boutonAction(
+                context,
+                label: 'Valider — fonds disponibles',
                 couleur: AppColors.primary,
-                onTap: () =>
-                    _validerTresorier(context),
+                onTap: () => _validerTresorier(context),
               ),
             if (peutValiderCommissaire)
-              _boutonAction(context,
+              _boutonAction(
+                context,
                 label: 'Valider — conformité',
                 couleur: AppColors.primary,
-                onTap: () =>
-                    _validerCommissaire(context),
+                onTap: () => _validerCommissaire(context),
               ),
             if (peutApprouver)
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () =>
-                          _decider(context, 'refuse'),
-                        style:
-                          OutlinedButton.styleFrom(
-                        foregroundColor:
-                            AppColors.danger,
-                        side: const BorderSide(
-                            color: AppColors.danger),
+                      onPressed: () => _decider(context, 'refuse'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.danger,
+                        side: const BorderSide(color: AppColors.danger),
                       ),
-                      child:
-                          const Text('Refuser'),
+                      child: const Text('Refuser'),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => _decider(
-                          context, 'approuve'),
-                      child: const Text(
-                          'Approuver ✓'),
+                      onPressed: () => _decider(context, 'approuve'),
+                      child: const Text('Approuver ✓'),
                     ),
                   ),
                 ],
               ),
             if (peutRembourser)
               OutlinedButton.icon(
-                onPressed: () => _rembourser(
-                    context, montant,
-                    montantRembourse),
-                icon: const Icon(Icons.payment,
-                    size: 16),
-                label: const Text(
-                    'Enregistrer un remboursement'),
+                onPressed: () =>
+                    _rembourser(context, montant, montantRembourse),
+                icon: const Icon(Icons.payment, size: 16),
+                label: const Text('Enregistrer un remboursement'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
-                  side: const BorderSide(
-                      color: AppColors.primary),
-                  minimumSize:
-                      const Size(double.infinity, 40),
+                  side: const BorderSide(color: AppColors.primary),
+                  minimumSize: const Size(double.infinity, 40),
                 ),
               ),
           ],
 
-          if (lectureSeule &&
-              statut == 'en_attente')
+          if (lectureSeule && statut == 'en_attente')
             Container(
               margin: const EdgeInsets.only(top: 10),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.muted
-                    .withOpacity(0.08),
-                borderRadius:
-                    BorderRadius.circular(8),
+                color: AppColors.muted.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Row(
                 children: [
                   Icon(Icons.visibility_outlined,
-                      size: 14,
-                      color: AppColors.muted),
+                      size: 14, color: AppColors.muted),
                   SizedBox(width: 6),
                   Text('Lecture seule',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.muted)),
+                      style: TextStyle(fontSize: 11, color: AppColors.muted)),
                 ],
               ),
             ),
@@ -932,18 +787,15 @@ class _CarteEmpruntValidation extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 28, height: 28,
+          width: 28,
+          height: 28,
           decoration: BoxDecoration(
-            color: fait
-                ? AppColors.success
-                : AppColors.border,
+            color: fait ? AppColors.success : AppColors.border,
             shape: BoxShape.circle,
           ),
           child: Icon(
             fait ? Icons.check : icone,
-            color: fait
-                ? Colors.white
-                : AppColors.muted,
+            color: fait ? Colors.white : AppColors.muted,
             size: 14,
           ),
         ),
@@ -951,31 +803,23 @@ class _CarteEmpruntValidation extends StatelessWidget {
         Text(label,
             style: TextStyle(
               fontSize: 9,
-              color: fait
-                  ? AppColors.success
-                  : AppColors.muted,
-              fontWeight: fait
-                  ? FontWeight.w700
-                  : FontWeight.w400,
+              color: fait ? AppColors.success : AppColors.muted,
+              fontWeight: fait ? FontWeight.w700 : FontWeight.w400,
             )),
         if (sousTitre != null)
           Text(sousTitre,
-              style: const TextStyle(
-                  fontSize: 8,
-                  color: AppColors.muted)),
+              style: const TextStyle(fontSize: 8, color: AppColors.muted)),
       ],
     );
   }
 
   Widget _ligne(bool active) => Expanded(
-    child: Container(
-      height: 2,
-      margin: const EdgeInsets.only(bottom: 22),
-      color: active
-          ? AppColors.success
-          : AppColors.border,
-    ),
-  );
+        child: Container(
+          height: 2,
+          margin: const EdgeInsets.only(bottom: 22),
+          color: active ? AppColors.success : AppColors.border,
+        ),
+      );
 
   Widget _boutonAction(
     BuildContext context, {
@@ -989,32 +833,26 @@ class _CarteEmpruntValidation extends StatelessWidget {
           onPressed: onTap,
           style: ElevatedButton.styleFrom(
             backgroundColor: couleur,
-            minimumSize:
-                const Size(double.infinity, 42),
+            minimumSize: const Size(double.infinity, 42),
           ),
           child: Text(label,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w700)),
+              style: const TextStyle(fontWeight: FontWeight.w700)),
         ),
       );
 
-  Future<void> _validerTresorier(
-      BuildContext context) async {
+  Future<void> _validerTresorier(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Validation Trésorier'),
-        content: const Text(
-            'Confirmez que les fonds sont disponibles ?'),
+        content: const Text('Confirmez que les fonds sont disponibles ?'),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Valider'),
           ),
         ],
@@ -1047,24 +885,19 @@ class _CarteEmpruntValidation extends StatelessWidget {
     }
   }
 
-  Future<void> _validerCommissaire(
-      BuildContext context) async {
+  Future<void> _validerCommissaire(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title:
-            const Text('Validation Commissaire'),
-        content: const Text(
-            'Confirmez la conformité de cette demande ?'),
+        title: const Text('Validation Commissaire'),
+        content: const Text('Confirmez la conformité de cette demande ?'),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Valider'),
           ),
         ],
@@ -1085,8 +918,7 @@ class _CarteEmpruntValidation extends StatelessWidget {
           .doc(empruntId)
           .update({
         'valideCommissaire': true,
-        'dateCommissaire':
-            FieldValue.serverTimestamp(),
+        'dateCommissaire': FieldValue.serverTimestamp(),
         'commissaireNom': valDoc['nom'] ?? '',
       });
     } catch (e) {
@@ -1113,13 +945,11 @@ class _CarteEmpruntValidation extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Confirmer'),
           ),
         ],
@@ -1135,11 +965,8 @@ class _CarteEmpruntValidation extends StatelessWidget {
           .doc(empruntId)
           .update({
         'statut': decision,
-        'dateDecision':
-            FieldValue.serverTimestamp(),
-        'decideParPresident':
-            FirebaseAuth.instance.currentUser?.uid ??
-                '',
+        'dateDecision': FieldValue.serverTimestamp(),
+        'decideParPresident': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
 
       if (context.mounted) {
@@ -1148,9 +975,8 @@ class _CarteEmpruntValidation extends StatelessWidget {
             content: Text(decision == 'approuve'
                 ? 'Emprunt approuvé !'
                 : 'Demande refusée'),
-            backgroundColor: decision == 'approuve'
-                ? AppColors.success
-                : AppColors.danger,
+            backgroundColor:
+                decision == 'approuve' ? AppColors.success : AppColors.danger,
           ),
         );
       }
@@ -1174,23 +1000,17 @@ class _CarteEmpruntValidation extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text(
-            'Enregistrer un remboursement'),
+        title: const Text('Enregistrer un remboursement'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Reste : $reste FCFA',
-              style: const TextStyle(
-                  color: AppColors.muted)),
+            Text('Reste : $reste FCFA',
+                style: const TextStyle(color: AppColors.muted)),
             const SizedBox(height: 14),
             TextFormField(
               controller: ctrl,
               keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter
-                    .digitsOnly
-              ],
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(
                 labelText: 'Montant versé',
                 suffixText: 'FCFA',
@@ -1200,13 +1020,11 @@ class _CarteEmpruntValidation extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Enregistrer'),
           ),
         ],
@@ -1214,13 +1032,10 @@ class _CarteEmpruntValidation extends StatelessWidget {
     );
     if (confirm != true) return;
 
-    final versement =
-        int.tryParse(ctrl.text) ?? 0;
+    final versement = int.tryParse(ctrl.text) ?? 0;
     final nouveauTotal = dejaRembourse + versement;
     final nouveauStatut =
-        nouveauTotal >= montantTotal
-            ? 'rembourse'
-            : 'approuve';
+        nouveauTotal >= montantTotal ? 'rembourse' : 'approuve';
 
     try {
       await FirebaseFirestore.instance
@@ -1231,8 +1046,7 @@ class _CarteEmpruntValidation extends StatelessWidget {
           .update({
         'montantRembourse': nouveauTotal,
         'statut': nouveauStatut,
-        'dernierRemboursement':
-            FieldValue.serverTimestamp(),
+        'dernierRemboursement': FieldValue.serverTimestamp(),
       });
 
       if (context.mounted) {
@@ -1257,7 +1071,7 @@ class _CarteEmpruntValidation extends StatelessWidget {
   }
 }
 
-//  Carte emprunt simple (Mes emprunts) 
+// Carte emprunt simple (Mes emprunts)
 class _CarteEmprunt extends StatelessWidget {
   final Map<String, dynamic> data;
   final bool afficherRemboursement;
@@ -1268,27 +1082,19 @@ class _CarteEmprunt extends StatelessWidget {
     required this.afficherRemboursement,
     required this.onRembourser,
   });
-    @override
+
+  @override
   Widget build(BuildContext context) {
-    final statut =
-        data['statut'] as String? ?? '';
+    final statut = data['statut'] as String? ?? '';
     final montant = data['montant'] as int? ?? 0;
-    final montantRembourse =
-        data['montantRembourse'] as int? ?? 0;
-    final demandeurNom =
-        data['demandeurNom'] as String? ?? '';
+    final montantRembourse = data['montantRembourse'] as int? ?? 0;
+    final demandeurNom = data['demandeurNom'] as String? ?? '';
     final motif = data['motif'] as String? ?? '';
-    final dureeMois =
-        data['dureeMois'] as int? ?? 1;
-    final taux =
-        (data['tauxInteret'] as num?)?.toDouble() ??
-            0;
-    final typeInteret =
-        data['typeInteret'] as String? ?? 'simple';
-    final totalARembourser =
-        data['totalARembourser'] as String?;
-    final mensualite =
-        data['mensualiteEstimee'] as String?;
+    final dureeMois = data['dureeMois'] as int? ?? 1;
+    final taux = (data['tauxInteret'] as num?)?.toDouble() ?? 0;
+    final typeInteret = data['typeInteret'] as String? ?? 'simple';
+    final totalARembourser = data['totalARembourser'] as String?;
+    final mensualite = data['mensualiteEstimee'] as String?;
 
     Color couleur;
     String label;
@@ -1316,28 +1122,23 @@ class _CarteEmprunt extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: couleur.withOpacity(0.3)),
+        border: Border.all(color: couleur.withOpacity(0.3)),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(demandeurNom,
                   style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15)),
+                      fontWeight: FontWeight.w700, fontSize: 15)),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: couleur.withOpacity(0.1),
-                  borderRadius:
-                      BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(label,
                     style: TextStyle(
@@ -1358,47 +1159,34 @@ class _CarteEmprunt extends StatelessWidget {
             Text(
               'Intérêt $typeInteret · ${taux.toStringAsFixed(1)}%'
               '${totalARembourser != null ? ' · Total : $totalARembourser FCFA' : ''}',
-              style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.muted),
+              style: const TextStyle(fontSize: 12, color: AppColors.muted),
             ),
             if (mensualite != null)
               Text(
                 'Mensualité : $mensualite FCFA',
-                style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.muted),
+                style: const TextStyle(fontSize: 12, color: AppColors.muted),
               ),
           ],
           if (motif.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(motif,
-                style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.muted)),
+                style: const TextStyle(fontSize: 12, color: AppColors.muted)),
           ],
-          if (statut == 'approuve' ||
-              statut == 'rembourse') ...[
+          if (statut == 'approuve' || statut == 'rembourse') ...[
             const SizedBox(height: 10),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                    value: montant > 0
-                    ? montantRembourse / montant
-                    : 0,
+                value: montant > 0 ? montantRembourse / montant : 0,
                 backgroundColor: AppColors.border,
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(
-                        couleur),
+                valueColor: AlwaysStoppedAnimation<Color>(couleur),
                 minHeight: 5,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               '$montantRembourse / $montant FCFA remboursé',
-              style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.muted),
+              style: const TextStyle(fontSize: 11, color: AppColors.muted),
             ),
           ],
         ],

@@ -292,7 +292,6 @@ class AccueilTab extends StatelessWidget {
               titre: 'Prochaine réunion',
               icone: Icons.calendar_month_outlined),
        
-
             // Remplace le widget _ProchaineMeeting par :
     GestureDetector(
       onTap: () => Navigator.push(

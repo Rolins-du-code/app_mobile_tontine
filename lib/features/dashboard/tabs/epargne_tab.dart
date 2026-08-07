@@ -1,3 +1,5 @@
+// fichier reserve a la gestion des epargne
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,18 +20,16 @@ class EpargneTab extends StatelessWidget {
     required this.estBureau,
   });
 
-  bool get _voitTout => [
-        'tresorier',
-        'secretaire_general',
-        'commissaire_comptes',
-        'president',
-      ].contains(role);
+  // Seuls ces rôles voient toutes les épargnes
+  bool get _voitTout =>
+      role == 'tresorier' ||
+      role == 'commissaire_comptes';
 
-  bool get _peutEnregistrer => [
-        'tresorier',
-        'secretaire_general',
-        'commissaire_comptes',
-      ].contains(role);
+  // Seul le trésorier peut enregistrer
+  bool get _peutEnregistrer => role == 'tresorier';
+
+  // Seul le trésorier voit les intérêts
+  bool get _voitInterets => role == 'tresorier';
 
   @override
   Widget build(BuildContext context) {
@@ -57,9 +57,13 @@ class EpargneTab extends StatelessWidget {
     }
 
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    final taux = (tontineData['tauxInteret'] as num?)?.toDouble() ?? 3.0;
-    final moisCourant = tontineData['moisCourant'] as int? ?? 1;
-    final dureeMois = tontineData['dureeMois'] as int? ?? 10;
+    final taux =
+        (tontineData['tauxInteret'] as num?)
+            ?.toDouble() ?? 3.0;
+    final moisCourant =
+        tontineData['moisCourant'] as int? ?? 1;
+    final dureeMois =
+        tontineData['dureeMois'] as int? ?? 10;
     final moisRestants = dureeMois - moisCourant;
 
     return Builder(
@@ -75,7 +79,8 @@ class EpargneTab extends StatelessWidget {
                 indicatorColor: AppColors.primary,
                 tabs: [
                   const Tab(text: 'Mon épargne'),
-                  if (_voitTout) const Tab(text: 'Vue globale'),
+                  if (_voitTout)
+                    const Tab(text: 'Vue globale'),
                 ],
               ),
             ),
@@ -89,15 +94,16 @@ class EpargneTab extends StatelessWidget {
                     moisCourant: moisCourant,
                     moisRestants: moisRestants,
                     peutEnregistrer: _peutEnregistrer,
+                    voitInterets: _voitInterets,
                   ),
                   if (_voitTout)
                     _VueGlobale(
                       tontineId: tontineId,
                       taux: taux,
                       moisRestants: moisRestants,
-                      role: role,
-                      peutEnregistrer: _peutEnregistrer,
-                      moisCourant: moisCourant,
+                      estTresorier:
+                          _peutEnregistrer,
+                      voitInterets: _voitInterets,
                     ),
                 ],
               ),
@@ -109,14 +115,15 @@ class EpargneTab extends StatelessWidget {
   }
 }
 
-// ── Mon épargne ──
-class _MonEpargne extends StatelessWidget {
+//  Mon épargne
+class _MonEpargne extends StatefulWidget {
   final String tontineId;
   final String uid;
   final double taux;
   final int moisCourant;
   final int moisRestants;
   final bool peutEnregistrer;
+  final bool voitInterets;
 
   const _MonEpargne({
     required this.tontineId,
@@ -125,16 +132,113 @@ class _MonEpargne extends StatelessWidget {
     required this.moisCourant,
     required this.moisRestants,
     required this.peutEnregistrer,
+    required this.voitInterets,
   });
 
   @override
+  State<_MonEpargne> createState() =>
+      _MonEpargneState();
+}
+class _MonEpargneState extends State<_MonEpargne> {
+  final _montantController = TextEditingController();
+  // Pour enregistrer au nom d'un autre membre (trésorier)
+  String? _uidCible;
+  String? _nomCible;
+
+  @override
+  void initState() {
+    super.initState();
+    // Par défaut : enregistre pour soi-même
+    _uidCible = widget.uid;
+  }
+
+  @override
+  void dispose() {
+    _montantController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _verser() async {
+    final montant =
+        int.tryParse(_montantController.text) ?? 0;
+    if (montant <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Entrez un montant valide')),
+      );
+      return;
+    }
+
+    try {
+      final uidCible = _uidCible ?? widget.uid;
+
+      // Récupère le nom du membre cible
+      final membreDoc = await FirebaseFirestore.instance
+          .collection('membres')
+          .doc(uidCible)
+          .get();
+      final nom = membreDoc.exists
+          ? membreDoc['nom'] as String? ?? ''
+          : _nomCible ?? '';
+
+      final epargneRef = FirebaseFirestore.instance
+          .collection('tontines')
+          .doc(widget.tontineId)
+          .collection('epargnes')
+          .doc(uidCible);
+
+      await epargneRef.set({
+        'membreNom': nom,
+        'membreUid': uidCible,
+        'derniereMaj': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      await epargneRef.collection('versements').add({
+        'mois': widget.moisCourant,
+        'montant': montant,
+        'date': FieldValue.serverTimestamp(),
+        'enregistrePar': widget.uid,
+      });
+
+      _montantController.clear();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$montant FCFA épargnés '
+              '${_nomCible != null ? 'pour $_nomCible' : ''} !',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            backgroundColor: AppColors.danger,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Le trésorier peut choisir pour quel membre
+    // il enregistre — pour l'instant affiche
+    // son propre historique
+    final uidAffiche = widget.uid;
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('tontines')
-          .doc(tontineId)
+          .doc(widget.tontineId)
           .collection('epargnes')
-          .doc(uid)
+          .doc(uidAffiche)
           .collection('versements')
           .snapshots(),
       builder: (context, snap) {
@@ -143,32 +247,50 @@ class _MonEpargne extends StatelessWidget {
           0,
           (sum, v) =>
               sum +
-              ((v.data() as Map<String, dynamic>)['montant'] as int? ?? 0),
+              ((v.data() as Map<String,
+                      dynamic>)['montant']
+                  as int? ?? 0),
         );
-        final interets = totalEpargne * (taux / 100) * moisRestants;
-        final totalFinal = totalEpargne + interets;
+
+        // Intérêts : visibles uniquement par le trésorier
+        final interets = widget.voitInterets
+            ? totalEpargne *
+                (widget.taux / 100) *
+                widget.moisRestants
+            : 0.0;
+        final totalFinal =
+            totalEpargne + interets;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
-              // Carte résumé
+
+              //  Carte résumé 
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppColors.primary, Color(0xFF4F8BFF)],
+                    colors: [
+                      AppColors.primary,
+                      Color(0xFF4F8BFF),
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius:
+                      BorderRadius.circular(16),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     const Text('Mon épargne totale',
-                        style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13)),
                     const SizedBox(height: 4),
                     Text('$totalEpargne FCFA',
                         style: const TextStyle(
@@ -176,108 +298,235 @@ class _MonEpargne extends StatelessWidget {
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
                         )),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Intérêts (fin de cycle)',
-                                  style: TextStyle(
-                                      color: Colors.white70, fontSize: 11)),
-                              Text('+${interets.toStringAsFixed(0)} FCFA',
+
+                    // Intérêts — trésorier seulement
+                    if (widget.voitInterets) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding:
+                            const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white
+                              .withOpacity(0.1),
+                          borderRadius:
+                              BorderRadius.circular(
+                                  10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment
+                                  .spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment
+                                      .start,
+                              children: [
+                                const Text(
+                                    'Intérêts estimés',
+                                    style: TextStyle(
+                                        color: Colors
+                                            .white70,
+                                        fontSize: 11)),
+                                Text(
+                                  '+${interets.toStringAsFixed(0)} FCFA',
                                   style: const TextStyle(
-                                    color: AppColors.accent,
-                                    fontWeight: FontWeight.w700,
+                                    color:
+                                        AppColors.accent,
+                                    fontWeight:
+                                        FontWeight.w700,
                                     fontSize: 14,
                                   )),
-                            ],
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              const Text('Total estimé',
-                                  style: TextStyle(
-                                      color: Colors.white70, fontSize: 11)),
-                              Text('${totalFinal.toStringAsFixed(0)} FCFA',
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.end,
+                              children: [
+                                const Text(
+                                    'Total fin de cycle',
+                                    style: TextStyle(
+                                        color: Colors
+                                            .white70,
+                                        fontSize: 11)),
+                                Text(
+                                  '${totalFinal.toStringAsFixed(0)} FCFA',
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight:
+                                        FontWeight.w700,
                                     fontSize: 14,
                                   )),
-                            ],
-                          ),
-                        ],
+                              ],
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Récupérable à la fin du cycle ($moisRestants mois restants)',
-                      style: const TextStyle(
-                          color: Colors.white60, fontSize: 11),
-                    ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${widget.moisRestants} mois '
+                        'restants · taux ${widget.taux.toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 11,
+                        )),
+                    ],
                   ],
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-              const Text('Historique de mes versements',
-                  style:
-                      TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              //  Enregistrer un versement ──────
+              // Visible uniquement par le trésorier
+              if (widget.peutEnregistrer) ...[
+                const Text('Enregistrer un versement',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15)),
+                const SizedBox(height: 6),
+                const Text(
+                  'Montant libre — facultatif.',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.muted)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller:
+                            _montantController,
+                        keyboardType:
+                            TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter
+                              .digitsOnly
+                        ],
+                        decoration:
+                            const InputDecoration(
+                          hintText: 'Montant (FCFA)',
+                          suffixText: 'FCFA',
+                          prefixIcon: Icon(
+                              Icons.savings_outlined),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: _verser,
+                      style: ElevatedButton.styleFrom(
+                          minimumSize:
+                              const Size(90, 56)),
+                      child: const Text('Épargner'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Message pour les non-trésoriers
+              if (!widget.peutEnregistrer) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary
+                        .withOpacity(0.06),
+                    borderRadius:
+                        BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.primary
+                          .withOpacity(0.2),
+                    ),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          color: AppColors.primary,
+                          size: 16),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Les versements sont '
+                          'enregistrés par le trésorier.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+//  Historique ────────────────────
+              const Text(
+                  'Historique de mes versements',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15)),
               const SizedBox(height: 10),
 
               if (versements.isEmpty)
                 const Center(
                   child: Padding(
                     padding: EdgeInsets.all(20),
-                    child: Text('Aucun versement enregistré pour le moment.',
-                        style: TextStyle(color: AppColors.muted)),
+                    child: Text(
+                      'Aucun versement enregistré.',
+                      style: TextStyle(
+                          color: AppColors.muted)),
                   ),
                 )
               else
                 ...versements.map((v) {
-                  final d = v.data() as Map<String, dynamic>;
-                  final montant = d['montant'] as int? ?? 0;
-                  final mois = d['mois'] as int? ?? 0;
+                  final d = v.data()
+                      as Map<String, dynamic>;
+                  final montant =
+                      d['montant'] as int? ?? 0;
+                  final mois =
+                      d['mois'] as int? ?? 0;
 
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
+                    margin: const EdgeInsets.only(
+                        bottom: 8),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
                       color: AppColors.card,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
+                      borderRadius:
+                          BorderRadius.circular(12),
+                      border: Border.all(
+                          color: AppColors.border),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          width: 36,
-                          height: 36,
+                          width: 36, height: 36,
                           decoration: BoxDecoration(
-                            color: AppColors.success.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
+                            color: AppColors.success
+                                .withOpacity(0.1),
+                            borderRadius:
+                                BorderRadius.circular(
+                                    10),
                           ),
-                          child: const Icon(Icons.savings_outlined,
-                              color: AppColors.success, size: 18),
+                          child: const Icon(
+                              Icons.savings_outlined,
+                              color: AppColors.success,
+                              size: 18),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text('Mois $mois',
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 13)),
+                                  fontWeight:
+                                      FontWeight.w600,
+                                  fontSize: 13)),
                         ),
                         Text('$montant FCFA',
                             style: const TextStyle(
-                              fontWeight: FontWeight.w800,
+                              fontWeight:
+                                  FontWeight.w800,
                               fontSize: 15,
                               color: AppColors.success,
                             )),
@@ -293,37 +542,21 @@ class _MonEpargne extends StatelessWidget {
   }
 }
 
-// ── Vue globale (Bureau) ──
+//  Vue globale (Trésorier + Commissaire) 
 class _VueGlobale extends StatelessWidget {
   final String tontineId;
   final double taux;
   final int moisRestants;
-  final String role;
-  final bool peutEnregistrer;
-  final int moisCourant;
+  final bool estTresorier;
+  final bool voitInterets;
 
   const _VueGlobale({
     required this.tontineId,
     required this.taux,
     required this.moisRestants,
-    required this.role,
-    required this.peutEnregistrer,
-    required this.moisCourant,
+    required this.estTresorier,
+    required this.voitInterets,
   });
-
-  void _ouvrirModalNouveauVersement(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => _FormulaireSaisieEpargne(
-        tontineId: tontineId,
-        moisCourant: moisCourant,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -336,176 +569,325 @@ class _VueGlobale extends StatelessWidget {
       builder: (context, snap) {
         final epargnes = snap.data?.docs ?? [];
 
-        return Stack(
-          children: [
-            Column(
+        return FutureBuilder<Map<String, int>>(
+          future: _calculerTotaux(epargnes),
+          builder: (context, snapTotaux) {
+            final totaux = snapTotaux.data ?? {};
+            final totalCaisse = totaux.values
+                .fold<int>(0, (s, v) => s + v);
+            final interetsTotal = voitInterets
+                ? totalCaisse *
+                    (taux / 100) *
+                    moisRestants
+                : 0.0;
+
+            return Column(
               children: [
-                if (role == 'tresorier' || role == 'president')
-                  FutureBuilder<int>(
-                    future: _calculerTotal(epargnes),
-                    builder: (context, snapT) {
-                      final total = snapT.data ?? 0;
-                      return Container(
-                        margin: const EdgeInsets.all(16),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: AppColors.primary.withOpacity(0.2),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+                //  Résumé caisse (trésorier only) 
+                if (voitInterets)
+                  Container(
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary
+                          .withOpacity(0.06),
+                      borderRadius:
+                          BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.primary
+                            .withOpacity(0.2),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment
+                                  .spaceBetween,
                           children: [
                             Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment
+                                      .start,
                               children: [
-                                const Text('Caisse épargne totale',
-                                    style: TextStyle(
-                                        fontSize: 12, color: AppColors.muted)),
-                                Text('$total FCFA',
-                                    style: const TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.primary,
-                                    )),
+                                const Text(
+                                  'Total caisse épargne',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          AppColors.muted)),
+                                Text(
+                                  '$totalCaisse FCFA',
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight:
+                                        FontWeight.w800,
+                                    color:
+                                        AppColors.primary,
+                                  )),
                               ],
                             ),
-                            const Icon(Icons.lock_outline,
-                                color: AppColors.muted, size: 16),
+                            Container(
+                              padding:
+                                  const EdgeInsets
+                                      .symmetric(
+                                      horizontal: 10,
+                                      vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary
+                                    .withOpacity(0.1),
+                                borderRadius:
+                                    BorderRadius.circular(
+                                        20),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                      Icons.lock_outline,
+                                      size: 12,
+                                      color:
+                                          AppColors.primary),
+                                  SizedBox(width: 4),
+                                  Text('Trésorier',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors
+                                              .primary,
+                                              fontWeight:
+                                              FontWeight
+                                                  .w700)),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      );
-                    },
+                        const SizedBox(height: 10),
+                        Container(
+                          padding:
+                              const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent
+                                .withOpacity(0.08),
+                            borderRadius:
+                                BorderRadius.circular(
+                                    10),
+                          ),
+                          child: Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment
+                                    .spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment
+                                        .start,
+                                children: [
+                                  const Text(
+                                    'Intérêts totaux estimés',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color:
+                                            AppColors.muted)),
+                                  Text(
+                                    '+${interetsTotal.toStringAsFixed(0)} FCFA',
+                                    style: const TextStyle(
+                                      color:
+                                          AppColors.accent,
+                                      fontWeight:
+                                          FontWeight.w700,
+                                      fontSize: 15,
+                                    )),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.end,
+                                children: [
+                                  const Text(
+                                    'Total à redistribuer',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color:
+                                            AppColors.muted)),
+                                  Text(
+                                    '${(totalCaisse + interetsTotal).toStringAsFixed(0)} FCFA',
+                                    style: const TextStyle(
+                                      color:
+                                          AppColors.primary,
+                                      fontWeight:
+                                          FontWeight.w800,
+                                      fontSize: 15,
+                                    )),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '$moisRestants mois restants · '
+                          'taux ${taux.toStringAsFixed(1)}%',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.muted)),
+                      ],
+                    ),
                   ),
+
+                // Bandeau info commissaire
+                if (!voitInterets)
+                  Container(
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.muted
+                          .withOpacity(0.08),
+                      borderRadius:
+                          BorderRadius.circular(10),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.visibility_outlined,
+                            size: 14,
+                            color: AppColors.muted),
+                        SizedBox(width: 8),
+                        Text(
+                          'Montants et détails des intérêts '
+                          'visibles par le trésorier uniquement.',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                //  Liste des épargnants 
                 Expanded(
                   child: epargnes.isEmpty
                       ? const Center(
-                          child: Text('Aucun épargnant.',
-                              style: TextStyle(color: AppColors.muted)))
+                          child: Text(
+                            'Aucun épargnant.',
+                            style: TextStyle(
+                                color: AppColors.muted),
+                          ))
                       : ListView.builder(
-                          padding: const EdgeInsets.only(
-                              left: 16, right: 16, bottom: 80),
+                          padding:
+                              const EdgeInsets.symmetric(
+                                  horizontal: 16),
                           itemCount: epargnes.length,
                           itemBuilder: (context, i) {
-                            final e = epargnes[i].data()
+                            final e = epargnes[i]
+                                    .data()
                                 as Map<String, dynamic>;
-                            final nom = e['membreNom'] as String? ?? '';
+                            final nom = e['membreNom']
+                                    as String? ??
+                                '';
                             final uid = epargnes[i].id;
+                            final total =
+                                totaux[uid] ?? 0;
+                            final interets = voitInterets
+                                ? total *
+                                    (taux / 100) *
+                                    moisRestants
+                                : 0.0;
 
-                            return FutureBuilder<QuerySnapshot>(
-                              future: FirebaseFirestore.instance
-                                  .collection('tontines')
-                                  .doc(tontineId)
-                                  .collection('epargnes')
-                                  .doc(uid)
-                                  .collection('versements')
-                                  .get(),
-                              builder: (context, snapV) {
-                                final vers = snapV.data?.docs ?? [];
-                                final total = vers.fold<int>(
-                                  0,
-                                  (s, v) =>
-                                      s +
-                                      ((v.data() as Map<String,
-                                              dynamic>)['montant'] as int? ??
-                                          0),
-                                );
-                                final interets =
-                                    total * (taux / 100) * moisRestants;
-
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.card,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border:
-                                        Border.all(color: AppColors.border),
+                            return Container(
+                              margin:
+                                  const EdgeInsets.only(
+                                      bottom: 8),
+                              padding:
+                                  const EdgeInsets.all(
+                                      14),
+                              decoration: BoxDecoration(
+                                color: AppColors.card,
+                                borderRadius:
+                                    BorderRadius.circular(
+                                        12),
+                                border: Border.all(
+                                    color:
+                                        AppColors.border),
+                              ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor:
+                                        AppColors.primary
+                                            .withOpacity(
+                                                0.12),
+                                    child: Text(
+                                      nom.isNotEmpty
+                                          ? nom[0]
+                                              .toUpperCase()
+                                          : '?',
+                                        style: const TextStyle(
+                                        color: AppColors
+                                            .primary,
+                                        fontWeight:
+                                            FontWeight.w700,
+                                      )),
                                   ),
-                                  child: Row(
+                                  const SizedBox(
+                                      width: 12),
+                                  Expanded(
+                                    child: Text(nom,
+                                        style: const TextStyle(
+                                            fontWeight:
+                                                FontWeight
+                                                    .w600,
+                                            fontSize:
+                                                13.5)),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment
+                                            .end,
                                     children: [
-                                      CircleAvatar(
-                                        backgroundColor: AppColors.primary
-                                            .withOpacity(0.12),
-                                        child: Text(
-                                          nom.isNotEmpty
-                                              ? nom[0].toUpperCase()
-                                              : '?',
+                                      Text(
+                                        '$total FCFA',
+                                        style: const TextStyle(
+                                          fontWeight:
+                                              FontWeight
+                                                  .w800,
+                                          fontSize: 14,
+                                          color: AppColors
+                                              .primary,
+                                        )),
+                                      // Intérêts : trésorier seulement
+                                      if (voitInterets)
+                                        Text(
+                                          '+${interets.toStringAsFixed(0)} intérêts',
                                           style: const TextStyle(
-                                            color: AppColors.primary,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(nom,
-                                                style: const TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 13.5)),
-                                            Text('${vers.length} versement(s)',
-                                                style: const TextStyle(
-                                                    fontSize: 11,
-                                                    color: AppColors.muted)),
-                                          ],
-                                        ),
-                                      ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Text('$total FCFA',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w800,
-                                                fontSize: 14,
-                                                color: AppColors.primary,
-                                              )),
-                                          Text(
-                                              '+${interets.toStringAsFixed(0)} intérêts',
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.accent,
-                                                fontWeight: FontWeight.w600,
-                                              )),
-                                        ],
-                                      ),
+                                            fontSize: 10,
+                                            color: AppColors
+                                                .accent,
+                                            fontWeight:
+                                                FontWeight
+                                                    .w600,
+                                          )),
                                     ],
                                   ),
-                                );
-                              },
+                                ],
+                              ),
                             );
                           },
                         ),
                 ),
               ],
-            ),
-            if (peutEnregistrer)
-              Positioned(
-                bottom: 16,
-                right: 16,
-                child: FloatingActionButton.extended(
-                  onPressed: () => _ouvrirModalNouveauVersement(context),
-                  backgroundColor: AppColors.primary,
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text('Saisir épargne',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ),
-          ],
+            );
+          },
         );
       },
     );
   }
 
-  Future<int> _calculerTotal(List<QueryDocumentSnapshot> epargnes) async {
-    int total = 0;
+  // ignore: unused_element
+  Future<Map<String, int>> _calculerTotaux(
+      List<QueryDocumentSnapshot> epargnes) async {
+    final Map<String, int> totaux = {};
     for (final e in epargnes) {
       final vers = await FirebaseFirestore.instance
           .collection('tontines')
@@ -514,179 +896,14 @@ class _VueGlobale extends StatelessWidget {
           .doc(e.id)
           .collection('versements')
           .get();
-      for (final v in vers.docs) {
-        total += (v.data())['montant'] as int? ?? 0;
-      }
-    }
-    return total;
-  }
-}
-
-//  Formulaire de Saisie d'Épargne (Trésorière / Secrétaire / Commissaire) ──
-class _FormulaireSaisieEpargne extends StatefulWidget {
-  final String tontineId;
-  final int moisCourant;
-
-  const _FormulaireSaisieEpargne({
-    required this.tontineId,
-    required this.moisCourant,
-  });
-
-  @override
-  State<_FormulaireSaisieEpargne> createState() =>
-      __FormulaireSaisieEpargneState();
-}
-
-class __FormulaireSaisieEpargneState extends State<_FormulaireSaisieEpargne> {
-  final _montantController = TextEditingController();
-  String? _selectedMembreUid;
-  String? _selectedMembreNom;
-  bool _isLoading = false;
-
-  @override
-  void dispose() {
-    _montantController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _enregistrerEpargne() async {
-    final montant = int.tryParse(_montantController.text) ?? 0;
-
-    if (_selectedMembreUid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner un membre')),
+      totaux[e.id] = vers.docs.fold<int>(
+        0,
+        (s, v) =>
+            s +
+            ((v.data())['montant']
+                as int? ?? 0),
       );
-      return;
     }
-
-    if (montant <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez entrer un montant valide')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final epargneRef = FirebaseFirestore.instance
-          .collection('tontines')
-          .doc(widget.tontineId)
-          .collection('epargnes')
-          .doc(_selectedMembreUid);
-
-      await epargneRef.set({
-        'membreNom': _selectedMembreNom ?? '',
-        'membreUid': _selectedMembreUid,
-        'derniereMaj': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      await epargneRef.collection('versements').add({
-        'mois': widget.moisCourant,
-        'montant': montant,
-        'date': FieldValue.serverTimestamp(),
-      });
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Versement de $montant FCFA enregistré pour $_selectedMembreNom !'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur : $e'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        top: 20,
-        left: 20,
-        right: 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Enregistrer un versement d\'épargne',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('tontines')
-                .doc(widget.tontineId)
-                .collection('adhesions')
-                .snapshots(),
-            builder: (context, snap) {
-              if (!snap.hasData) return const CircularProgressIndicator();
-              final docs = snap.data!.docs;
-
-              return DropdownButtonFormField<String>(
-                value: _selectedMembreUid,
-                hint: const Text('Sélectionner le membre'),
-                items: docs.map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final nom = data['membreNom'] as String? ?? 'Membre';
-                  return DropdownMenuItem<String>(
-                    value: doc.id,
-                    child: Text(nom),
-                    onTap: () => _selectedMembreNom = nom,
-                  );
-                }).toList(),
-                onChanged: (val) => setState(() => _selectedMembreUid = val),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _montantController,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
-              hintText: 'Montant versé (FCFA)',
-              suffixText: 'FCFA',
-              prefixIcon: Icon(Icons.savings_outlined),
-            ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _enregistrerEpargne,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('Valider le versement',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
-      ),
-    );
+    return totaux;
   }
 }

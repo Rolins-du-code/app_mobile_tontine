@@ -122,7 +122,17 @@ class _PinScreenState extends State<PinScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text('Compte créé ! ✅'),
+          title: Row(
+            children: [
+              const Icon(
+                Icons.verified_user_rounded,
+                color: AppColors.success,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              const Text('Compte créé !')
+            ],
+          ),
           content: const Text(
             'Votre compte a été créé avec succès. '
             'Vous pouvez maintenant vous connecter.',
